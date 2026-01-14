@@ -121,7 +121,17 @@ actor AudioRecorder {
         logToFile("🎤 Raw samples: \(samples.count)")
 
         // Normalize audio if needed
-        return normalizeAudio(samples)
+        let normalized = normalizeAudio(samples)
+        let trimmed = trimSilenceFromEnds(normalized)
+
+        if !trimmed.isEmpty {
+            let seconds = Double(trimmed.count) / targetSampleRate
+            logToFile("🎤 Final samples: \(trimmed.count) (\(String(format: "%.2f", seconds))s)")
+        } else {
+            logToFile("🎤 Final samples: 0 (silence)")
+        }
+
+        return trimmed
     }
 
     private func normalizeAudio(_ samples: [Float]) -> [Float] {
@@ -152,6 +162,73 @@ actor AudioRecorder {
 
         logToFile("🎤 Normalized with scale: \(scale)")
         return normalizedSamples
+    }
+
+    private func trimSilenceFromEnds(_ samples: [Float]) -> [Float] {
+        guard !samples.isEmpty else { return samples }
+
+        let sampleRate = Int(targetSampleRate)
+        let frameLength = max(1, Int(Double(sampleRate) * 0.02)) // 20ms
+        let hopLength = frameLength
+        let paddingSamples = Int(Double(sampleRate) * 0.20) // 200ms
+
+        if samples.count < frameLength {
+            return samples
+        }
+
+        var rmsValues: [Float] = []
+        rmsValues.reserveCapacity(samples.count / hopLength + 1)
+
+        var maxRms: Float = 0
+        samples.withUnsafeBufferPointer { buffer in
+            guard let base = buffer.baseAddress else { return }
+            var index = 0
+            while index + frameLength <= buffer.count {
+                var rms: Float = 0
+                vDSP_rmsqv(base.advanced(by: index), 1, &rms, vDSP_Length(frameLength))
+                rmsValues.append(rms)
+                maxRms = max(maxRms, rms)
+                index += hopLength
+            }
+        }
+
+        guard !rmsValues.isEmpty else { return samples }
+
+        // If overall energy is extremely low, treat as silence and skip transcription.
+        if maxRms < 0.01 {
+            logToFile("🎤 Detected mostly silent audio (max RMS: \(maxRms)); skipping transcription")
+            return []
+        }
+
+        let threshold = max(0.01, maxRms * 0.10)
+
+        var firstFrameIndex: Int?
+        var lastFrameIndex: Int?
+        for (index, rms) in rmsValues.enumerated() {
+            if rms >= threshold {
+                if firstFrameIndex == nil {
+                    firstFrameIndex = index
+                }
+                lastFrameIndex = index
+            }
+        }
+
+        guard let firstFrameIndex, let lastFrameIndex else {
+            logToFile("🎤 No speech found above RMS threshold: \(threshold); skipping transcription")
+            return []
+        }
+
+        let speechStartSample = firstFrameIndex * hopLength
+        let speechEndSample = lastFrameIndex * hopLength + frameLength
+
+        let trimmedStart = max(0, speechStartSample - paddingSamples)
+        let trimmedEnd = min(samples.count, speechEndSample + paddingSamples)
+
+        guard trimmedStart < trimmedEnd else { return [] }
+
+        let trimmed = Array(samples[trimmedStart..<trimmedEnd])
+        logToFile("🎤 Trimmed silence: \(samples.count) -> \(trimmed.count) samples (RMS threshold: \(threshold))")
+        return trimmed
     }
 }
 

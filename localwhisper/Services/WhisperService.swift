@@ -6,6 +6,8 @@
 //
 
 import Foundation
+import Accelerate
+import CoreML
 import WhisperKit
 
 actor WhisperService {
@@ -80,9 +82,19 @@ actor WhisperService {
     }
 
     private func loadModel(from path: String) async throws {
+        let computeOptions = ModelComputeOptions(
+            melCompute: .cpuAndGPU,
+            audioEncoderCompute: .cpuAndGPU,
+            textDecoderCompute: .cpuAndNeuralEngine,
+            prefillCompute: .cpuAndGPU
+        )
+
         let config = WhisperKitConfig(
             model: modelName,
             modelFolder: path,
+            computeOptions: computeOptions,
+            verbose: false,
+            prewarm: true,
             load: true,
             download: false
         )
@@ -138,8 +150,10 @@ actor WhisperService {
         await log("🤖 Starting transcription with \(audioSamples.count) samples")
 
         // Check audio levels
-        let maxAmplitude = audioSamples.map { abs($0) }.max() ?? 0
-        let avgAmplitude = audioSamples.map { abs($0) }.reduce(0, +) / Float(audioSamples.count)
+        var maxAmplitude: Float = 0
+        var avgAmplitude: Float = 0
+        vDSP_maxmgv(audioSamples, 1, &maxAmplitude, vDSP_Length(audioSamples.count))
+        vDSP_meamgv(audioSamples, 1, &avgAmplitude, vDSP_Length(audioSamples.count))
         await log("🔊 Audio levels - max: \(maxAmplitude), avg: \(avgAmplitude)")
 
         let options = DecodingOptions(
@@ -148,12 +162,25 @@ actor WhisperService {
             temperature: 0.0,
             skipSpecialTokens: true,
             withoutTimestamps: true,
-            wordTimestamps: false
+            wordTimestamps: false,
+            concurrentWorkerCount: 4,
+            chunkingStrategy: .vad
         )
 
+        let startedAt = Date()
         let results = try await pipe.transcribe(audioArray: audioSamples, decodeOptions: options)
+        let wallClockSeconds = Date().timeIntervalSince(startedAt)
+
         let transcription = results.map { $0.text }.joined()
         await log("🤖 Raw transcription: '\(transcription)'")
+
+        let timings = pipe.currentTimings
+        await log("""
+        ⏱️ WhisperKit timings - audio: \(String(format: "%.2f", timings.inputAudioSeconds))s, \
+        pipeline: \(String(format: "%.2f", timings.fullPipeline))s, \
+        wall: \(String(format: "%.2f", wallClockSeconds))s, \
+        speed: \(String(format: "%.2f", timings.speedFactor))x
+        """)
 
         // Clean up the transcription
         let cleaned = cleanTranscription(transcription)

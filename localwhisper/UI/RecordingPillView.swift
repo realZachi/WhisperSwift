@@ -7,109 +7,176 @@
 
 import SwiftUI
 
-/// Observable object to receive audio levels from AudioRecorder
+// MARK: - Audio Level Monitor
+
 @Observable
 final class AudioLevelMonitor {
-    var levels: [Float] = Array(repeating: 0, count: 30)
+    var currentLevel: Float = 0
+    var smoothedLevel: Float = 0
+
+    private let smoothingFactor: Float = 0.25
 
     func update(level: Float) {
-        levels.removeFirst()
-        levels.append(level)
+        currentLevel = level
+        smoothedLevel = smoothedLevel + smoothingFactor * (level - smoothedLevel)
     }
 
     func reset() {
-        levels = Array(repeating: 0, count: 30)
+        currentLevel = 0
+        smoothedLevel = 0
     }
 }
+
+// MARK: - Recording State
+
+enum RecordingPillState: Equatable {
+    case recording
+    case processing
+}
+
+// MARK: - Main View
 
 struct RecordingPillView: View {
     var audioMonitor: AudioLevelMonitor
-    @State private var isAnimating = false
+    var state: RecordingPillState
 
-    private let pillWidth: CGFloat = 200
-    private let pillHeight: CGFloat = 44
-    private let barCount = 30
+    @State private var morphProgress: CGFloat = 0
 
     var body: some View {
-        HStack(spacing: 3) {
-            // Recording indicator dot
-            Circle()
-                .fill(Color.red)
-                .frame(width: 8, height: 8)
-                .opacity(isAnimating ? 1.0 : 0.4)
-                .animation(
-                    Animation.easeInOut(duration: 0.6).repeatForever(autoreverses: true),
-                    value: isAnimating
-                )
-
-            // Waveform bars
-            HStack(spacing: 2) {
-                ForEach(0..<barCount, id: \.self) { index in
-                    WaveformBar(level: audioMonitor.levels[index])
-                }
-            }
-            .frame(height: 24)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(
-            Capsule()
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    Capsule()
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(0.3),
-                                    Color.white.opacity(0.1)
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            ),
-                            lineWidth: 0.5
-                        )
-                )
-        )
-        .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 5)
-        .onAppear {
-            isAnimating = true
-        }
-    }
-}
-
-struct WaveformBar: View {
-    let level: Float
-
-    private var normalizedHeight: CGFloat {
-        // Clamp level between 0 and 1, then scale for visual effect
-        let clamped = min(max(CGFloat(level), 0), 1)
-        // Minimum height of 0.1 so bars are always visible
-        return max(clamped, 0.1)
-    }
-
-    var body: some View {
-        RoundedRectangle(cornerRadius: 1.5)
-            .fill(
-                LinearGradient(
-                    colors: [
-                        Color.red.opacity(0.8),
-                        Color.orange.opacity(0.9)
-                    ],
-                    startPoint: .bottom,
-                    endPoint: .top
-                )
+        ZStack {
+            MorphingIndicatorView(
+                audioMonitor: audioMonitor,
+                isProcessing: state == .processing,
+                morphProgress: morphProgress
             )
-            .frame(width: 3, height: 24 * normalizedHeight)
-            .animation(.easeOut(duration: 0.05), value: level)
+        }
+        .frame(width: 60, height: 50)
+        .onChange(of: state) { _, newState in
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.75)) {
+                morphProgress = newState == .processing ? 1 : 0
+            }
+        }
     }
 }
 
-#Preview {
-    let monitor = AudioLevelMonitor()
-    // Simulate some audio levels for preview
-    monitor.levels = (0..<30).map { _ in Float.random(in: 0.1...0.8) }
+// MARK: - Morphing Indicator
 
-    return RecordingPillView(audioMonitor: monitor)
+struct MorphingIndicatorView: View {
+    var audioMonitor: AudioLevelMonitor
+    var isProcessing: Bool
+    var morphProgress: CGFloat
+
+    @State private var dotAnimationPhase: CGFloat = 0
+
+    private let circleSize: CGFloat = 28
+    private let dotSize: CGFloat = 6
+    private let dotSpacing: CGFloat = 10
+
+    var body: some View {
+        ZStack {
+            // Recording circle - fades and splits
+            recordingCircle
+                .opacity(1 - morphProgress)
+                .scaleEffect(1 + morphProgress * 0.3)
+                .blur(radius: morphProgress * 4)
+
+            // Processing dots - emerge from center
+            processingDots
+                .opacity(morphProgress)
+                .scaleEffect(0.5 + morphProgress * 0.5)
+        }
+        .onAppear {
+            withAnimation(.linear(duration: 2).repeatForever(autoreverses: false)) {
+                dotAnimationPhase = 1
+            }
+        }
+    }
+
+    // MARK: - Recording Circle
+
+    private var recordingCircle: some View {
+        let audioLevel = CGFloat(audioMonitor.smoothedLevel)
+        let breathScale = 1.0 + audioLevel * 0.15
+        let pulseIntensity = 0.3 + audioLevel * 0.5
+
+        return ZStack {
+            // Outer pulse ring
+            Circle()
+                .stroke(Color.white.opacity(0.2 + audioLevel * 0.3), lineWidth: 1)
+                .frame(width: circleSize + 8, height: circleSize + 8)
+                .scaleEffect(breathScale * 1.1)
+                .blur(radius: 1)
+
+            // Main circle with subtle inner glow
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            Color.white.opacity(0.95),
+                            Color.white.opacity(0.8)
+                        ],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: circleSize / 2
+                    )
+                )
+                .frame(width: circleSize, height: circleSize)
+                .scaleEffect(breathScale)
+                .shadow(color: Color.white.opacity(pulseIntensity), radius: 6 + audioLevel * 6)
+
+            // Inner warmth on audio
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            Color(red: 1, green: 0.4, blue: 0.3).opacity(audioLevel * 0.4),
+                            Color.clear
+                        ],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: circleSize / 2.5
+                    )
+                )
+                .frame(width: circleSize - 4, height: circleSize - 4)
+                .scaleEffect(breathScale)
+        }
+        .animation(.easeOut(duration: 0.08), value: audioMonitor.smoothedLevel)
+    }
+
+    // MARK: - Processing Dots
+
+    private var processingDots: some View {
+        HStack(spacing: dotSpacing) {
+            ForEach(0..<3, id: \.self) { index in
+                let delay = Double(index) * 0.15
+                let phase = (dotAnimationPhase + delay).truncatingRemainder(dividingBy: 1.0)
+                let wave = sin(phase * .pi * 2) * 0.5 + 0.5
+
+                Circle()
+                    .fill(Color.white.opacity(0.7 + wave * 0.3))
+                    .frame(width: dotSize, height: dotSize)
+                    .scaleEffect(0.7 + wave * 0.3)
+                    .offset(y: -wave * 3)
+            }
+        }
+    }
+}
+
+// MARK: - Preview
+
+#Preview("Recording") {
+    let monitor = AudioLevelMonitor()
+    monitor.smoothedLevel = 0.4
+
+    return RecordingPillView(audioMonitor: monitor, state: .recording)
         .padding(40)
-        .background(Color.gray.opacity(0.3))
+        .background(Color.black.opacity(0.9))
+}
+
+#Preview("Processing") {
+    let monitor = AudioLevelMonitor()
+
+    return RecordingPillView(audioMonitor: monitor, state: .processing)
+        .padding(40)
+        .background(Color.black.opacity(0.9))
 }

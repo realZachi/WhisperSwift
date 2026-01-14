@@ -133,7 +133,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         await MainActor.run {
             statusBarController?.state = .processing
-            recordingPillController?.hide()
+            recordingPillController?.transitionToProcessing()
         }
 
         // Stop recording and get audio samples
@@ -144,6 +144,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             logToFile("❌ No audio recorded (0 samples)")
             await MainActor.run {
                 statusBarController?.state = .idle
+                recordingPillController?.hide()
             }
             return
         }
@@ -181,6 +182,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         await MainActor.run {
             statusBarController?.state = .idle
+            recordingPillController?.hide()
         }
     }
 

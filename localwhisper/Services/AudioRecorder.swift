@@ -16,6 +16,13 @@ actor AudioRecorder {
     // Whisper requires 16kHz sample rate
     private let targetSampleRate: Double = 16000
 
+    // Callback for audio level updates (for waveform visualization)
+    private var levelCallback: ((Float) -> Void)?
+
+    func setLevelCallback(_ callback: @escaping (Float) -> Void) {
+        self.levelCallback = callback
+    }
+
     func startRecording() async throws {
         guard !isRecording else { return }
 
@@ -85,6 +92,17 @@ actor AudioRecorder {
             let frameCount = Int(outputBuffer.frameLength)
             let samples = Array(UnsafeBufferPointer(start: channelData, count: frameCount))
             audioBuffer.append(contentsOf: samples)
+
+            // Calculate RMS level for waveform visualization
+            if let callback = levelCallback, frameCount > 0 {
+                var rms: Float = 0
+                vDSP_rmsqv(channelData, 1, &rms, vDSP_Length(frameCount))
+                // Scale RMS to 0-1 range (typical speech RMS is 0.01-0.3)
+                let scaledLevel = min(rms * 5, 1.0)
+                DispatchQueue.main.async {
+                    callback(scaledLevel)
+                }
+            }
         }
     }
 

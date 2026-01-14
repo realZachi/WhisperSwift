@@ -28,6 +28,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var whisperService: WhisperService?
     private var audioRecorder: AudioRecorder?
     private var textInsertionService: TextInsertionService?
+    private var recordingPillController: RecordingPillController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         logToFile("🚀 App started")
@@ -57,9 +58,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         logToFile("📝 Creating TextInsertionService...")
         textInsertionService = TextInsertionService()
 
+        // Initialize recording pill overlay
+        logToFile("💊 Creating RecordingPillController...")
+        recordingPillController = RecordingPillController()
+
         // Initialize audio recorder
         logToFile("🎤 Creating AudioRecorder...")
         audioRecorder = AudioRecorder()
+
+        // Connect audio level callback to pill
+        if let pillController = recordingPillController {
+            await audioRecorder?.setLevelCallback { level in
+                pillController.updateLevel(level)
+            }
+        }
 
         // Initialize Whisper service (loads model)
         logToFile("🤖 Loading Whisper model...")
@@ -95,6 +107,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         await MainActor.run {
             statusBarController?.state = .recording
+            recordingPillController?.show()
         }
 
         do {
@@ -104,6 +117,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             logToFile("❌ Failed to start recording: \(error)")
             await MainActor.run {
                 statusBarController?.state = .idle
+                recordingPillController?.hide()
             }
         }
     }
@@ -118,6 +132,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         await MainActor.run {
             statusBarController?.state = .processing
+            recordingPillController?.hide()
         }
 
         // Stop recording and get audio samples

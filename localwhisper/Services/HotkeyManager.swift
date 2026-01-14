@@ -10,13 +10,16 @@ import Carbon
 
 class HotkeyManager {
     private var flagsMonitor: Any?
+    private var localMonitor: Any?
     private var isKeyDown = false
 
     var onKeyDown: (() -> Void)?
     var onKeyUp: (() -> Void)?
 
-    // Selected hotkey from settings
-    @AppStorage("selectedHotkey") private var selectedHotkey = "fn"
+    // Selected hotkey from UserDefaults
+    private var selectedHotkey: String {
+        UserDefaults.standard.string(forKey: "selectedHotkey") ?? "fn"
+    }
 
     init(onKeyDown: @escaping () -> Void, onKeyUp: @escaping () -> Void) {
         self.onKeyDown = onKeyDown
@@ -35,7 +38,7 @@ class HotkeyManager {
         }
 
         // Also add local monitor for when app is focused
-        NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
+        localMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
             self?.handleFlagsChanged(event)
             return event
         }
@@ -76,6 +79,10 @@ class HotkeyManager {
         if let monitor = flagsMonitor {
             NSEvent.removeMonitor(monitor)
             flagsMonitor = nil
+        }
+        if let monitor = localMonitor {
+            NSEvent.removeMonitor(monitor)
+            localMonitor = nil
         }
     }
 

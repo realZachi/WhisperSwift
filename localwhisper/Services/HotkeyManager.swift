@@ -16,7 +16,7 @@ class HotkeyManager {
     var onKeyDown: (() -> Void)?
     var onKeyUp: (() -> Void)?
 
-    // Selected hotkey from UserDefaults
+    // Selected hotkey from UserDefaults - default to "option" for better compatibility
     private var selectedHotkey: String {
         UserDefaults.standard.string(forKey: "selectedHotkey") ?? "fn"
     }
@@ -32,7 +32,17 @@ class HotkeyManager {
     }
 
     private func setupMonitor() {
-        // Monitor for modifier key changes (Fn, Option, Control)
+        logToFile("🎹 Setting up hotkey monitor for: \(selectedHotkey)")
+
+        // Try CGEvent tap first (more reliable for Fn key)
+        if HotkeyManager.checkAccessibilityPermission() {
+            logToFile("🎹 Using CGEvent tap (Accessibility granted)")
+            setupCGEventMonitor()
+        } else {
+            logToFile("🎹 Accessibility not granted, using NSEvent monitor (limited)")
+        }
+
+        // Also add NSEvent monitors as backup
         flagsMonitor = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
             self?.handleFlagsChanged(event)
         }
@@ -43,11 +53,12 @@ class HotkeyManager {
             return event
         }
 
-        print("Hotkey monitor initialized for: \(selectedHotkey)")
+        logToFile("🎹 Hotkey monitors initialized")
     }
 
     private func handleFlagsChanged(_ event: NSEvent) {
         let keyPressed: Bool
+        let rawFlags = event.modifierFlags.rawValue
 
         switch selectedHotkey {
         case "fn":
@@ -62,6 +73,11 @@ class HotkeyManager {
             keyPressed = event.modifierFlags.contains(.control)
         default:
             keyPressed = event.modifierFlags.contains(.function)
+        }
+
+        // Log raw flags for debugging
+        if keyPressed != isKeyDown {
+            logToFile("🎹 NSEvent flags: \(rawFlags), keyPressed: \(keyPressed), isKeyDown: \(isKeyDown)")
         }
 
         if keyPressed && !isKeyDown {
@@ -88,13 +104,12 @@ class HotkeyManager {
 
     /// Check if accessibility permissions are granted (required for global monitoring)
     static func checkAccessibilityPermission() -> Bool {
-        let options = [kAXTrustedCheckOptionPrompt.takeRetainedValue(): false] as CFDictionary
-        return AXIsProcessTrustedWithOptions(options)
+        AXIsProcessTrusted()
     }
 
     /// Request accessibility permission with prompt
     static func requestAccessibilityPermission() -> Bool {
-        let options = [kAXTrustedCheckOptionPrompt.takeRetainedValue(): true] as CFDictionary
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         return AXIsProcessTrustedWithOptions(options)
     }
 }
@@ -105,6 +120,7 @@ extension HotkeyManager {
     /// Alternative setup using CGEvent tap for more reliable key detection
     /// This requires accessibility permissions
     func setupCGEventMonitor() {
+        logToFile("🎹 Creating CGEvent tap...")
         let eventMask = (1 << CGEventType.flagsChanged.rawValue)
 
         guard let eventTap = CGEvent.tapCreate(
@@ -120,17 +136,19 @@ extension HotkeyManager {
             },
             userInfo: Unmanaged.passUnretained(self).toOpaque()
         ) else {
-            print("Failed to create CGEvent tap. Check accessibility permissions.")
+            logToFile("❌ Failed to create CGEvent tap. Check accessibility permissions.")
             return
         }
 
         let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0)
         CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
         CGEvent.tapEnable(tap: eventTap, enable: true)
+        logToFile("✅ CGEvent tap created and enabled")
     }
 
     private func handleCGEvent(_ event: CGEvent) {
         let flags = event.flags
+        let rawFlags = flags.rawValue
 
         let keyPressed: Bool
         switch selectedHotkey {
@@ -144,13 +162,20 @@ extension HotkeyManager {
             keyPressed = flags.contains(.maskSecondaryFn)
         }
 
+        // Log for debugging
+        if keyPressed != isKeyDown {
+            logToFile("🎹 CGEvent flags: \(rawFlags), keyPressed: \(keyPressed), hotkey: \(selectedHotkey)")
+        }
+
         if keyPressed && !isKeyDown {
             isKeyDown = true
+            logToFile("⬇️ CGEvent: Key DOWN")
             DispatchQueue.main.async { [weak self] in
                 self?.onKeyDown?()
             }
         } else if !keyPressed && isKeyDown {
             isKeyDown = false
+            logToFile("⬆️ CGEvent: Key UP")
             DispatchQueue.main.async { [weak self] in
                 self?.onKeyUp?()
             }

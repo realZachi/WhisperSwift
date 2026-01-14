@@ -118,9 +118,8 @@ struct PermissionsView: View {
     }
 
     private func openAccessibilitySettings() {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
-            NSWorkspace.shared.open(url)
-        }
+        _ = PermissionManager.shared.requestAccessibilityAccess()
+        PermissionManager.shared.openAccessibilitySettings()
     }
 }
 

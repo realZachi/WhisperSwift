@@ -12,6 +12,7 @@ class PermissionManager {
     static let shared = PermissionManager()
 
     private init() {}
+    private let accessibilityPromptedKey = "didPromptAccessibilityAccess"
 
     // MARK: - Permission Status
 
@@ -20,8 +21,7 @@ class PermissionManager {
     }
 
     var hasAccessibilityAccess: Bool {
-        let options = [kAXTrustedCheckOptionPrompt.takeRetainedValue(): false] as CFDictionary
-        return AXIsProcessTrustedWithOptions(options)
+        AXIsProcessTrusted()
     }
 
     var hasAllPermissions: Bool {
@@ -31,40 +31,52 @@ class PermissionManager {
     // MARK: - Request Permissions
 
     func requestPermissions() async {
+        logToFile("📋 PermissionManager.requestPermissions() starting")
         await requestMicrophoneAccess()
+        logToFile("📋 Microphone request done")
         await checkAccessibilityAccess()
+        logToFile("📋 Accessibility check done")
     }
 
     private func requestMicrophoneAccess() async {
         let status = AVCaptureDevice.authorizationStatus(for: .audio)
+        logToFile("📋 Microphone status: \(status.rawValue)")
 
         switch status {
         case .notDetermined:
+            logToFile("📋 Requesting microphone access...")
             let granted = await AVCaptureDevice.requestAccess(for: .audio)
-            if !granted {
-                await showMicrophoneAlert()
-            }
+            logToFile("📋 Microphone access granted: \(granted)")
+            // Don't show blocking alert, just log
         case .denied, .restricted:
-            await showMicrophoneAlert()
+            logToFile("⚠️ Microphone access denied/restricted - please enable in System Settings")
         case .authorized:
-            print("Microphone access already granted")
+            logToFile("✅ Microphone access already granted")
         @unknown default:
             break
         }
     }
 
     private func checkAccessibilityAccess() async {
+        logToFile("📋 Checking accessibility access...")
         if !hasAccessibilityAccess {
-            await showAccessibilityAlert()
+            logToFile("⚠️ Accessibility NOT granted - prompting system dialog")
+            if !UserDefaults.standard.bool(forKey: accessibilityPromptedKey) {
+                UserDefaults.standard.set(true, forKey: accessibilityPromptedKey)
+                await MainActor.run {
+                    _ = requestAccessibilityAccess()
+                }
+            }
+            logToFile("⚠️ Accessibility NOT granted - user should enable in System Settings")
         } else {
-            print("Accessibility access already granted")
+            logToFile("✅ Accessibility access already granted")
         }
     }
 
-    // MARK: - Alert Dialogs
+    // MARK: - Alert Dialogs (kept for menu-triggered use)
 
     @MainActor
-    private func showMicrophoneAlert() {
+    func showMicrophoneAlert() {
         let alert = NSAlert()
         alert.messageText = "Microphone Access Required"
         alert.informativeText = "LocalWhisper needs microphone access to record your voice for transcription.\n\nPlease grant microphone access in System Settings > Privacy & Security > Microphone."
@@ -78,7 +90,7 @@ class PermissionManager {
     }
 
     @MainActor
-    private func showAccessibilityAlert() {
+    func showAccessibilityAlert() {
         let alert = NSAlert()
         alert.messageText = "Accessibility Access Required"
         alert.informativeText = "LocalWhisper needs accessibility access for:\n\n• Global hotkey detection (Fn key)\n• Inserting transcribed text\n\nPlease grant accessibility access in System Settings > Privacy & Security > Accessibility."
@@ -91,8 +103,7 @@ class PermissionManager {
         }
 
         // Also trigger the system prompt
-        let options = [kAXTrustedCheckOptionPrompt.takeRetainedValue(): true] as CFDictionary
-        _ = AXIsProcessTrustedWithOptions(options)
+        _ = requestAccessibilityAccess()
     }
 
     // MARK: - Open System Settings
@@ -107,6 +118,11 @@ class PermissionManager {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
             NSWorkspace.shared.open(url)
         }
+    }
+
+    func requestAccessibilityAccess() -> Bool {
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+        return AXIsProcessTrustedWithOptions(options)
     }
 
     // MARK: - Permission Change Observation

@@ -100,19 +100,29 @@ actor AudioRecorder {
         let samples = audioBuffer
         audioBuffer = []
 
+        logToFile("🎤 Raw samples: \(samples.count)")
+
         // Normalize audio if needed
         return normalizeAudio(samples)
     }
 
     private func normalizeAudio(_ samples: [Float]) -> [Float] {
-        guard !samples.isEmpty else { return samples }
+        guard !samples.isEmpty else {
+            logToFile("🎤 Empty samples, returning as is")
+            return samples
+        }
 
         // Find max amplitude
         var maxAmplitude: Float = 0
         vDSP_maxmgv(samples, 1, &maxAmplitude, vDSP_Length(samples.count))
 
+        logToFile("🎤 Max amplitude before normalization: \(maxAmplitude)")
+
         // If audio is very quiet or silent, return as is
-        guard maxAmplitude > 0.001 else { return samples }
+        guard maxAmplitude > 0.001 else {
+            logToFile("🎤 Audio too quiet (< 0.001), returning as is")
+            return samples
+        }
 
         // Normalize to 0.9 max amplitude
         let targetMax: Float = 0.9
@@ -122,6 +132,7 @@ actor AudioRecorder {
         var scaleVar = scale
         vDSP_vsmul(samples, 1, &scaleVar, &normalizedSamples, 1, vDSP_Length(samples.count))
 
+        logToFile("🎤 Normalized with scale: \(scale)")
         return normalizedSamples
     }
 }

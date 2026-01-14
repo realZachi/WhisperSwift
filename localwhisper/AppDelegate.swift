@@ -8,6 +8,20 @@
 import Cocoa
 import SwiftUI
 
+func logToFile(_ message: String) {
+    let logFile = "/tmp/localwhisper.log"
+    let timestamp = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium)
+    let logMessage = "[\(timestamp)] \(message)\n"
+    if let handle = FileHandle(forWritingAtPath: logFile) {
+        handle.seekToEndOfFile()
+        handle.write(logMessage.data(using: .utf8)!)
+        handle.closeFile()
+    } else {
+        FileManager.default.createFile(atPath: logFile, contents: logMessage.data(using: .utf8), attributes: nil)
+    }
+    print(message) // Also print to stdout
+}
+
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusBarController: StatusBarController?
     private var hotkeyManager: HotkeyManager?
@@ -16,6 +30,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var textInsertionService: TextInsertionService?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        logToFile("🚀 App started")
+        UserDefaults.standard.register(defaults: [
+            "selectedHotkey": "fn",
+            "playSounds": true
+        ])
+
         // Initialize status bar
         statusBarController = StatusBarController()
 
@@ -26,39 +46,52 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func initializeServices() async {
+        logToFile("🔧 initializeServices started")
+
         // Check and request permissions
+        logToFile("🔐 Requesting permissions...")
         await PermissionManager.shared.requestPermissions()
+        logToFile("🔐 Permissions done")
 
         // Initialize text insertion service
+        logToFile("📝 Creating TextInsertionService...")
         textInsertionService = TextInsertionService()
 
         // Initialize audio recorder
+        logToFile("🎤 Creating AudioRecorder...")
         audioRecorder = AudioRecorder()
 
         // Initialize Whisper service (loads model)
+        logToFile("🤖 Loading Whisper model...")
         do {
             whisperService = try await WhisperService()
-            print("Whisper model loaded successfully")
+            logToFile("✅ Whisper model loaded successfully")
         } catch {
-            print("Failed to load Whisper model: \(error)")
+            logToFile("❌ Failed to load Whisper model: \(error)")
             await showModelLoadError(error)
         }
 
         // Initialize hotkey manager
+        logToFile("🎹 Setting up hotkey manager...")
         hotkeyManager = HotkeyManager(
             onKeyDown: { [weak self] in
+                logToFile("⬇️ Key DOWN detected")
                 Task { await self?.startRecording() }
             },
             onKeyUp: { [weak self] in
+                logToFile("⬆️ Key UP detected")
                 Task { await self?.stopRecordingAndTranscribe() }
             }
         )
 
-        print("LocalWhisper initialized successfully")
+        logToFile("✅ LocalWhisper initialized successfully")
     }
 
     private func startRecording() async {
-        guard let audioRecorder = audioRecorder else { return }
+        guard let audioRecorder = audioRecorder else {
+            logToFile("❌ audioRecorder is nil")
+            return
+        }
 
         await MainActor.run {
             statusBarController?.state = .recording
@@ -66,9 +99,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         do {
             try await audioRecorder.startRecording()
-            print("Recording started")
+            logToFile("🎤 Recording started")
         } catch {
-            print("Failed to start recording: \(error)")
+            logToFile("❌ Failed to start recording: \(error)")
             await MainActor.run {
                 statusBarController?.state = .idle
             }
@@ -78,41 +111,47 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func stopRecordingAndTranscribe() async {
         guard let audioRecorder = audioRecorder,
               let whisperService = whisperService,
-              let textInsertionService = textInsertionService else { return }
+              let textInsertionService = textInsertionService else {
+            logToFile("❌ Services not initialized")
+            return
+        }
 
         await MainActor.run {
             statusBarController?.state = .processing
         }
 
         // Stop recording and get audio samples
+        logToFile("⏹️ Stopping recording...")
         let audioSamples = await audioRecorder.stopRecording()
 
         guard !audioSamples.isEmpty else {
-            print("No audio recorded")
+            logToFile("❌ No audio recorded (0 samples)")
             await MainActor.run {
                 statusBarController?.state = .idle
             }
             return
         }
 
-        print("Recorded \(audioSamples.count) samples, transcribing...")
+        logToFile("📊 Recorded \(audioSamples.count) samples, transcribing...")
 
         // Transcribe audio
         do {
             let transcription = try await whisperService.transcribe(audioSamples: audioSamples)
 
             if !transcription.isEmpty {
-                print("Transcription: \(transcription)")
+                logToFile("✅ Transcription: \(transcription)")
 
                 // Insert text into focused application
                 await MainActor.run {
+                    logToFile("📝 Inserting text...")
                     textInsertionService.insertText(transcription)
+                    logToFile("✅ Text inserted")
                 }
             } else {
-                print("Empty transcription result")
+                logToFile("⚠️ Empty transcription result")
             }
         } catch {
-            print("Transcription failed: \(error)")
+            logToFile("❌ Transcription failed: \(error)")
         }
 
         await MainActor.run {

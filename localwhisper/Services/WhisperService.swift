@@ -59,15 +59,18 @@ actor WhisperService {
             throw WhisperError.notInitialized
         }
 
+        logToFile("🤖 Starting transcription with \(audioSamples.count) samples")
+
+        // Check audio levels
+        let maxAmplitude = audioSamples.map { abs($0) }.max() ?? 0
+        let avgAmplitude = audioSamples.map { abs($0) }.reduce(0, +) / Float(audioSamples.count)
+        logToFile("🔊 Audio levels - max: \(maxAmplitude), avg: \(avgAmplitude)")
+
         // Configure whisper parameters for transcription
         var params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY)
 
-        // Language settings - auto-detect for multilingual
-        params.language = nil  // Auto-detect language
-        params.detect_language = true
-
         // Performance settings
-        params.n_threads = Int32(ProcessInfo.processInfo.activeProcessorCount)
+        params.n_threads = Int32(min(4, ProcessInfo.processInfo.activeProcessorCount))
 
         // Output settings
         params.print_progress = false
@@ -78,13 +81,20 @@ actor WhisperService {
         // Translate to English (set to false to keep original language)
         params.translate = false
 
-        // Single segment mode for short recordings
-        params.single_segment = true
+        // Don't use single segment mode - let Whisper decide
+        params.single_segment = false
 
-        // Run transcription
-        let result = audioSamples.withUnsafeBufferPointer { samplesPtr in
-            whisper_full(context, params, samplesPtr.baseAddress, Int32(audioSamples.count))
+        // Run transcription with language set to German
+        logToFile("🤖 Running whisper_full with language: de")
+        let langString = "de"
+        let result = langString.withCString { langPtr in
+            params.language = langPtr
+            params.detect_language = false
+            return audioSamples.withUnsafeBufferPointer { samplesPtr in
+                whisper_full(context, params, samplesPtr.baseAddress, Int32(audioSamples.count))
+            }
         }
+        logToFile("🤖 whisper_full returned: \(result)")
 
         guard result == 0 else {
             throw WhisperError.transcriptionFailed
@@ -92,16 +102,23 @@ actor WhisperService {
 
         // Collect transcribed text from all segments
         let numSegments = whisper_full_n_segments(context)
+        logToFile("🤖 Number of segments: \(numSegments)")
         var transcription = ""
 
         for i in 0..<numSegments {
             if let textPtr = whisper_full_get_segment_text(context, i) {
-                transcription += String(cString: textPtr)
+                let segmentText = String(cString: textPtr)
+                logToFile("🤖 Segment \(i): '\(segmentText)'")
+                transcription += segmentText
             }
         }
 
+        logToFile("🤖 Raw transcription: '\(transcription)'")
+
         // Clean up the transcription
-        return cleanTranscription(transcription)
+        let cleaned = cleanTranscription(transcription)
+        logToFile("🤖 Cleaned transcription: '\(cleaned)'")
+        return cleaned
     }
 
     private func cleanTranscription(_ text: String) -> String {

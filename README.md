@@ -1,132 +1,82 @@
 # LocalWhisper
 
-A macOS menu bar app for push-to-talk speech recognition powered by whisper.cpp.
+**Lokale Spracherkennung für macOS - privat, schnell, offline.**
 
-## Features
+LocalWhisper ist eine minimalistische Menüleisten-App, die gesprochene Sprache in Text umwandelt. Halte einfach eine Taste gedrückt, sprich, und der Text erscheint automatisch dort, wo dein Cursor steht.
 
-- **Push-to-Talk**: Hold Fn key to record, release to transcribe
-- **Multilingual**: Supports German, English, and 90+ languages (auto-detection)
-- **Local Processing**: All transcription happens on-device using whisper.cpp
-- **Apple Silicon Optimized**: Uses Metal GPU acceleration for fast inference
-- **Text Insertion**: Automatically inserts transcribed text into any focused text field
+---
 
-## Requirements
+## Warum LocalWhisper?
 
-- macOS 13.0 or later
-- Apple Silicon Mac (M1/M2/M3/M4)
-- ~150MB disk space for the Whisper model
+### 100% Privat
+Deine Stimme verlässt niemals deinen Mac. Keine Cloud, keine Server, keine Datensammlung. Alles passiert lokal auf deinem Gerät.
 
-## Setup Instructions
+### Blitzschnell
+Dank Apple Silicon Optimierung (Metal GPU) erfolgt die Transkription in Echtzeit. Sprich einen Satz und der Text erscheint sofort.
 
-### 1. Open in Xcode
+### Komplett Offline
+Funktioniert ohne Internetverbindung. Im Flugzeug, im Zug, im Keller - überall.
 
-```bash
-open localwhisper.xcodeproj
-```
+### Mehrsprachig
+Erkennt automatisch Deutsch, Englisch und über 90 weitere Sprachen. Wechsle einfach die Sprache während du sprichst.
 
-### 2. Link whisper.xcframework
+### Einfache Bedienung
+Keine komplizierte Einrichtung. Taste drücken → Sprechen → Taste loslassen → Fertig.
 
-The XCFramework is already downloaded in `localwhisper/whisper.xcframework`.
+### Unsichtbar
+Läuft dezent in der Menüleiste. Kein Dock-Icon, keine störenden Fenster. Da wenn du es brauchst, unsichtbar wenn nicht.
 
-1. In Xcode, select the **localwhisper** target
-2. Go to **General** → **Frameworks, Libraries, and Embedded Content**
-3. Click **+** → **Add Other...** → **Add Files...**
-4. Select `localwhisper/whisper.xcframework`
-5. Set **Embed** to **Embed & Sign**
+---
 
-### 3. Configure Project Settings
+## So funktioniert's
 
-#### Info.plist
-The `Info.plist` file is already created. In Xcode:
-1. Select the project in the navigator
-2. Select the `localwhisper` target
-3. Go to **Build Settings**
-4. Search for `Info.plist File`
-5. Set to `localwhisper/Info.plist`
+1. **Starte LocalWhisper** - Das App-Icon erscheint in deiner Menüleiste
+2. **Halte die Option-Taste (⌥) gedrückt** - Die Aufnahme beginnt
+3. **Sprich deinen Text** - "Schreibe eine E-Mail an Max..."
+4. **Lass die Taste los** - Der Text wird transkribiert und eingefügt
 
-#### Entitlements
-1. In **Build Settings**, search for `Code Signing Entitlements`
-2. Set to `localwhisper/localwhisper.entitlements`
+Das war's. Keine Buttons, keine Menüs, keine Ablenkung.
 
-#### Bridging Header
-1. In **Build Settings**, search for `Objective-C Bridging Header`
-2. Set to `localwhisper/localwhisper-Bridging-Header.h`
+---
 
-#### Disable App Sandbox
-1. In **Signing & Capabilities**, remove "App Sandbox" if present
-2. The entitlements file already has sandbox disabled
+## Perfekt für
 
-### 4. Download Whisper Model
+- **Schnelles Schreiben** - E-Mails, Notizen, Nachrichten diktieren
+- **Längere Texte** - Berichte, Dokumentationen, Artikel verfassen
+- **Accessibility** - Für alle, die lieber sprechen als tippen
+- **Entwickler** - Code-Kommentare und Dokumentation schnell erfassen
+- **Kreative** - Ideen festhalten bevor sie verfliegen
 
-Download the multilingual base model (~142MB):
+---
 
-```bash
-# Create models directory
-mkdir -p localwhisper/Resources/models
+## Anforderungen
 
-# Download model
-curl -L "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin" \
-     -o localwhisper/Resources/models/ggml-base.bin
-```
+- macOS 13.0 oder neuer
+- Apple Silicon Mac (M1, M2, M3, ...)
+- Mikrofon-Berechtigung
+- Accessibility-Berechtigung (für Text-Einfügung)
 
-### 5. Add Model to Xcode Project
+---
 
-1. In Xcode, right-click on the `localwhisper` folder
-2. Select **Add Files to "localwhisper"...**
-3. Navigate to `Resources/models/ggml-base.bin`
-4. Ensure "Copy items if needed" is checked
-5. Add to target `localwhisper`
+## Datenschutz
 
-### 6. Grant Permissions
+LocalWhisper wurde mit Datenschutz als oberste Priorität entwickelt:
 
-On first launch, you'll need to grant:
+- **Keine Netzwerkverbindungen** - Die App kommuniziert mit keinem Server
+- **Keine Telemetrie** - Keine Nutzungsdaten, keine Analytics
+- **Keine Speicherung** - Audio wird nach der Transkription sofort verworfen
+- **Open Source** - Der komplette Code ist einsehbar
 
-1. **Microphone Access**: Required for voice recording
-2. **Accessibility Access**: Required for global hotkey and text insertion
+Deine Worte gehören dir.
 
-Go to **System Settings > Privacy & Security** to grant these permissions.
+---
 
-## Usage
+## Technologie
 
-1. Launch LocalWhisper - it appears in the menu bar (waveform icon)
-2. Click any text field in any application
-3. Hold the **Fn** key and speak
-4. Release the key - your speech is transcribed and inserted
+LocalWhisper nutzt [whisper.cpp](https://github.com/ggerganov/whisper.cpp), eine hochoptimierte Implementierung von OpenAI's Whisper Spracherkennungsmodell. Die Metal-Beschleunigung sorgt für maximale Performance auf Apple Silicon.
 
-## Hotkey Options
+---
 
-In the Settings menu, you can change the hotkey to:
-- **Fn (Globe) Key** - Default
-- **Right Option Key**
-- **Right Control Key**
+## Lizenz
 
-## Troubleshooting
-
-### "Model not found" error
-Ensure `ggml-base.bin` is in the app bundle. Check that it's added to the target in Xcode.
-
-### Hotkey not working
-1. Check Accessibility permissions in System Settings
-2. Try using Option key instead of Fn
-3. Restart the app after granting permissions
-
-### No transcription output
-1. Check Microphone permissions
-2. Ensure you're speaking clearly
-3. Check the console for error messages
-
-## Technical Details
-
-- **Audio Format**: 16kHz, mono, Float32 PCM
-- **Model**: ggml-base.bin (multilingual)
-- **Acceleration**: Metal GPU (Apple Silicon)
-- **Framework**: SwiftUI + AppKit
-
-## License
-
-MIT License
-
-## Acknowledgments
-
-- [whisper.cpp](https://github.com/ggml-org/whisper.cpp) by ggerganov
-- OpenAI Whisper model
+MIT License - Frei verwendbar, auch kommerziell.

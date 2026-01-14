@@ -2,6 +2,16 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <!-- Bundle identifier - required for permissions -->
+    <key>CFBundleIdentifier</key>
+    <string>com.localwhisper.app</string>
+
+    <key>CFBundleName</key>
+    <string>LocalWhisper</string>
+
+    <key>CFBundleDisplayName</key>
+    <string>LocalWhisper</string>
+
     <!-- Menu bar app - no dock icon -->
     <key>LSUIElement</key>
     <true/>

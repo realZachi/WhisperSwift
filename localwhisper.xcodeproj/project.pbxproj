@@ -6,13 +6,47 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		A5D93C502F18100000D6F72F /* ggml-base.bin in Resources */ = {isa = PBXBuildFile; fileRef = A5D93C4F2F18100000D6F72F /* ggml-base.bin */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		A5D93C3C2F180FF700D6F72F /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		A5D93BB02F18074D00D6F72F /* localwhisper.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = localwhisper.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A5D93C4F2F18100000D6F72F /* ggml-base.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; path = "ggml-base.bin"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+		A5D93C3D2F180FF700D6F72F /* Exceptions for "localwhisper" folder in "Embed Frameworks" phase from "localwhisper" target */ = {
+			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			attributesByRelativePath = {
+				whisper.xcframework = (CodeSignOnCopy, RemoveHeadersOnCopy, );
+			};
+			buildPhase = A5D93C3C2F180FF700D6F72F /* Embed Frameworks */;
+			membershipExceptions = (
+				whisper.xcframework,
+			);
+		};
+/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		A5D93BB22F18074D00D6F72F /* localwhisper */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				A5D93C3D2F180FF700D6F72F /* Exceptions for "localwhisper" folder in "Embed Frameworks" phase from "localwhisper" target */,
+			);
 			path = localwhisper;
 			sourceTree = "<group>";
 		};
@@ -33,6 +67,7 @@
 			isa = PBXGroup;
 			children = (
 				A5D93BB22F18074D00D6F72F /* localwhisper */,
+				A5D93C4E2F18100000D6F72F /* Models */,
 				A5D93BB12F18074D00D6F72F /* Products */,
 			);
 			sourceTree = "<group>";
@@ -45,6 +80,14 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		A5D93C4E2F18100000D6F72F /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				A5D93C4F2F18100000D6F72F /* ggml-base.bin */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -55,6 +98,7 @@
 				A5D93BAC2F18074D00D6F72F /* Sources */,
 				A5D93BAD2F18074D00D6F72F /* Frameworks */,
 				A5D93BAE2F18074D00D6F72F /* Resources */,
+				A5D93C3C2F180FF700D6F72F /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -109,6 +153,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A5D93C502F18100000D6F72F /* ggml-base.bin in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -274,6 +319,7 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "localwhisper/localwhisper-Bridging-Header.h";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -308,6 +354,7 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "localwhisper/localwhisper-Bridging-Header.h";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 			};

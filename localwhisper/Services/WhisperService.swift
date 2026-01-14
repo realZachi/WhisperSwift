@@ -9,7 +9,8 @@ import Foundation
 import WhisperKit
 
 actor WhisperService {
-    private let modelName = "large-v3-turbo"
+    private let modelName = "openai_whisper-large-v3_turbo"
+    private let modelDisplayName = "large-v3-turbo"
     private let modelRepo = "argmaxinc/whisperkit-coreml"
     private let modelPathDefaultsKey = "whisperkitModelPath"
     private var pipe: WhisperKit?
@@ -184,7 +185,7 @@ actor WhisperService {
             phase: phase,
             progress: progress,
             message: message,
-            modelName: modelName
+            modelName: modelDisplayName
         )
     }
 

@@ -146,10 +146,22 @@ class StatusBarController {
     }
 
     @objc private func openSettings() {
-        // Open the Settings window via SwiftUI
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        if settingsWindow == nil {
+            let hostingController = NSHostingController(rootView: SettingsView())
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 480, height: 320),
+                styleMask: [.titled, .closable, .miniaturizable],
+                backing: .buffered,
+                defer: false
+            )
+            window.title = "Settings"
+            window.isReleasedWhenClosed = false
+            window.contentViewController = hostingController
+            window.center()
+            settingsWindow = window
+        }
 
-        // Bring app to front
+        settingsWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 

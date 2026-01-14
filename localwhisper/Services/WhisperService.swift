@@ -15,6 +15,7 @@ actor WhisperService {
     private let modelPathDefaultsKey = "whisperkitModelPath"
     private var pipe: WhisperKit?
     private var isDownloading = false
+    private var downloadCompleted = false
 
     init() async {
         await initialize()
@@ -42,24 +43,14 @@ actor WhisperService {
     }
 
     private func candidateModelFolders() -> [URL] {
-        let fileManager = FileManager.default
         var candidates: [URL] = []
 
         if let storedPath = UserDefaults.standard.string(forKey: modelPathDefaultsKey) {
             candidates.append(URL(fileURLWithPath: storedPath))
         }
 
-        if let appSupport = try? fileManager.url(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: true
-        ) {
-            let appSupportRoot = appSupport.appendingPathComponent("LocalWhisper/WhisperKitModels", isDirectory: true)
-            if !fileManager.fileExists(atPath: appSupportRoot.path) {
-                try? fileManager.createDirectory(at: appSupportRoot, withIntermediateDirectories: true)
-            }
-            candidates.append(appSupportRoot.appendingPathComponent(modelName, isDirectory: true))
+        if let appSupportModel = appSupportModelFolder() {
+            candidates.append(appSupportModel)
         }
 
         if let bundleURL = Bundle.main.resourceURL?
@@ -75,8 +66,14 @@ actor WhisperService {
         let fileManager = FileManager.default
         let candidates = candidateModelFolders()
 
-        for candidate in candidates where fileManager.fileExists(atPath: candidate.path) {
-            return candidate.path
+        for candidate in candidates {
+            var isDirectory: ObjCBool = false
+            if fileManager.fileExists(atPath: candidate.path, isDirectory: &isDirectory) {
+                if isDirectory.boolValue {
+                    return candidate.path
+                }
+                return candidate.deletingLastPathComponent().path
+            }
         }
 
         return nil
@@ -99,6 +96,7 @@ actor WhisperService {
         guard pipe == nil else { return }
         guard !isDownloading else { return }
         isDownloading = true
+        downloadCompleted = false
 
         await updateStatus(phase: .downloading, progress: 0, message: "Downloading model...")
         await log("⬇️ Downloading WhisperKit model \(modelName)...")
@@ -114,15 +112,22 @@ actor WhisperService {
                     }
                 }
             )
-            UserDefaults.standard.set(modelURL.path, forKey: modelPathDefaultsKey)
+            downloadCompleted = true
+            let persistedURL = try persistDownloadedModel(at: modelURL)
+            UserDefaults.standard.set(persistedURL.path, forKey: modelPathDefaultsKey)
             await log("⬇️ WhisperKit model downloaded to: \(modelURL.path)")
-            try await loadModel(from: modelURL.path)
+            if persistedURL.path != modelURL.path {
+                await log("📦 Copied WhisperKit model to app support: \(persistedURL.path)")
+            }
+            await updateStatus(phase: .downloading, progress: 1.0, message: "Download complete. Loading model...")
+            try await loadModel(from: persistedURL.path)
         } catch {
             await updateStatus(phase: .failed, progress: nil, message: "Download failed: \(error.localizedDescription)")
             await log("❌ WhisperKit model download failed: \(error)")
         }
 
         isDownloading = false
+        downloadCompleted = false
     }
 
     func transcribe(audioSamples: [Float]) async throws -> String {
@@ -176,6 +181,7 @@ actor WhisperService {
     }
 
     private func updateDownloadProgress(fraction: Double) async {
+        guard isDownloading, !downloadCompleted else { return }
         let percent = Int(fraction * 100)
         await updateStatus(phase: .downloading, progress: fraction, message: "Downloading model... \(percent)%")
     }
@@ -193,6 +199,52 @@ actor WhisperService {
         await MainActor.run {
             logToFile(message)
         }
+    }
+
+    private func appSupportModelFolder() -> URL? {
+        let fileManager = FileManager.default
+        guard let appSupport = try? fileManager.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        ) else {
+            return nil
+        }
+
+        let appSupportRoot = appSupport.appendingPathComponent("LocalWhisper/WhisperKitModels", isDirectory: true)
+        if !fileManager.fileExists(atPath: appSupportRoot.path) {
+            try? fileManager.createDirectory(at: appSupportRoot, withIntermediateDirectories: true)
+        }
+        return appSupportRoot.appendingPathComponent(modelName, isDirectory: true)
+    }
+
+    private func persistDownloadedModel(at downloadedURL: URL) throws -> URL {
+        let fileManager = FileManager.default
+        let sourceURL = normalizedModelFolder(from: downloadedURL)
+        guard let destinationURL = appSupportModelFolder() else { return sourceURL }
+        if sourceURL.path == destinationURL.path {
+            return destinationURL
+        }
+
+        if fileManager.fileExists(atPath: destinationURL.path) {
+            try fileManager.removeItem(at: destinationURL)
+        }
+
+        try fileManager.createDirectory(
+            at: destinationURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try fileManager.copyItem(at: sourceURL, to: destinationURL)
+        return destinationURL
+    }
+
+    private func normalizedModelFolder(from url: URL) -> URL {
+        var isDirectory: ObjCBool = false
+        if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory), !isDirectory.boolValue {
+            return url.deletingLastPathComponent()
+        }
+        return url
     }
 }
 

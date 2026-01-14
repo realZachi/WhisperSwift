@@ -33,6 +33,7 @@ struct SettingsView: View {
 struct GeneralSettingsView: View {
     @AppStorage("selectedHotkey") private var selectedHotkey = "fn"
     @AppStorage("playSounds") private var playSounds = true
+    @ObservedObject private var modelStatus = WhisperModelStatus.shared
 
     var body: some View {
         Form {
@@ -57,8 +58,39 @@ struct GeneralSettingsView: View {
                 HStack {
                     Text("Whisper Model:")
                     Spacer()
-                    Text("base (multilingual)")
+                    Text(modelStatus.modelName)
                         .foregroundColor(.secondary)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    switch modelStatus.phase {
+                    case .ready:
+                        Label("Ready", systemImage: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                    case .downloading:
+                        ProgressView(value: modelStatus.progressFraction ?? 0)
+                        Text(modelStatus.message)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    case .failed:
+                        Label("Download failed", systemImage: "xmark.octagon.fill")
+                            .foregroundColor(.red)
+                        Text(modelStatus.message)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Button("Retry Download") {
+                            modelStatus.requestDownload?()
+                        }
+                        .buttonStyle(.bordered)
+                    case .idle:
+                        Text(modelStatus.message)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Button("Download Model") {
+                            modelStatus.requestDownload?()
+                        }
+                        .buttonStyle(.bordered)
+                    }
                 }
 
                 Text("Supports German, English, and 90+ other languages")
@@ -176,13 +208,13 @@ struct AboutView: View {
             Text("Version 1.0")
                 .foregroundColor(.secondary)
 
-            Text("Push-to-talk speech recognition powered by whisper.cpp")
+            Text("Push-to-talk speech recognition powered by WhisperKit")
                 .multilineTextAlignment(.center)
                 .foregroundColor(.secondary)
 
             Divider()
 
-            Text("whisper.cpp by ggml.ai")
+            Text("WhisperKit by argmaxinc")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }

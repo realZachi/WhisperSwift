@@ -6,11 +6,13 @@
 //
 
 import Cocoa
+import Combine
 import SwiftUI
 
 class StatusBarController {
     private var statusItem: NSStatusItem
     private var settingsWindow: NSWindow?
+    private var cancellables = Set<AnyCancellable>()
 
     enum RecordingState {
         case idle
@@ -28,6 +30,7 @@ class StatusBarController {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         setupButton()
         setupMenu()
+        observeModelStatus()
     }
 
     private func setupButton() {
@@ -45,6 +48,11 @@ class StatusBarController {
         statusMenuItem.isEnabled = false
         statusMenuItem.tag = 100
         menu.addItem(statusMenuItem)
+
+        let modelMenuItem = NSMenuItem(title: "Model: Not downloaded", action: nil, keyEquivalent: "")
+        modelMenuItem.isEnabled = false
+        modelMenuItem.tag = 101
+        menu.addItem(modelMenuItem)
 
         menu.addItem(NSMenuItem.separator())
 
@@ -95,6 +103,45 @@ class StatusBarController {
         if let menu = statusItem.menu,
            let statusMenuItem = menu.item(withTag: 100) {
             statusMenuItem.title = statusText
+        }
+    }
+
+    private func observeModelStatus() {
+        WhisperModelStatus.shared.$phase
+            .combineLatest(
+                WhisperModelStatus.shared.$progressFraction,
+                WhisperModelStatus.shared.$message,
+                WhisperModelStatus.shared.$modelName
+            )
+            .receive(on: RunLoop.main)
+            .sink { [weak self] phase, progress, message, modelName in
+                self?.updateModelMenuItem(phase: phase, progress: progress, message: message, modelName: modelName)
+            }
+            .store(in: &cancellables)
+    }
+
+    private func updateModelMenuItem(
+        phase: WhisperModelStatus.Phase,
+        progress: Double?,
+        message: String,
+        modelName: String
+    ) {
+        let text: String
+        switch phase {
+        case .ready:
+            text = "Model: \(modelName) ready"
+        case .downloading:
+            let percent = Int((progress ?? 0) * 100)
+            text = "Model: downloading \(percent)%"
+        case .failed:
+            text = "Model: download failed"
+        case .idle:
+            text = "Model: not downloaded"
+        }
+
+        if let menu = statusItem.menu,
+           let modelMenuItem = menu.item(withTag: 101) {
+            modelMenuItem.title = text
         }
     }
 

@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A5D93C502F18100000D6F72F /* ggml-small.bin in Resources */ = {isa = PBXBuildFile; fileRef = A5D93C4F2F18100000D6F72F /* ggml-small.bin */; };
+		57F5B92A506B497497CF2FB7 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 9D98E5EC166D4A96A25C2999 /* WhisperKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -25,28 +25,11 @@
 
 /* Begin PBXFileReference section */
 		A5D93BB02F18074D00D6F72F /* localwhisper.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = localwhisper.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		A5D93C4F2F18100000D6F72F /* ggml-small.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; path = "ggml-small.bin"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
-
-/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
-		A5D93C3D2F180FF700D6F72F /* Exceptions for "localwhisper" folder in "Embed Frameworks" phase from "localwhisper" target */ = {
-			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
-			attributesByRelativePath = {
-				whisper.xcframework = (CodeSignOnCopy, RemoveHeadersOnCopy, );
-			};
-			buildPhase = A5D93C3C2F180FF700D6F72F /* Embed Frameworks */;
-			membershipExceptions = (
-				whisper.xcframework,
-			);
-		};
-/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		A5D93BB22F18074D00D6F72F /* localwhisper */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				A5D93C3D2F180FF700D6F72F /* Exceptions for "localwhisper" folder in "Embed Frameworks" phase from "localwhisper" target */,
-			);
 			path = localwhisper;
 			sourceTree = "<group>";
 		};
@@ -57,6 +40,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				57F5B92A506B497497CF2FB7 /* WhisperKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -67,7 +51,6 @@
 			isa = PBXGroup;
 			children = (
 				A5D93BB22F18074D00D6F72F /* localwhisper */,
-				A5D93C4E2F18100000D6F72F /* Models */,
 				A5D93BB12F18074D00D6F72F /* Products */,
 			);
 			sourceTree = "<group>";
@@ -78,14 +61,6 @@
 				A5D93BB02F18074D00D6F72F /* localwhisper.app */,
 			);
 			name = Products;
-			sourceTree = "<group>";
-		};
-		A5D93C4E2F18100000D6F72F /* Models */ = {
-			isa = PBXGroup;
-			children = (
-				A5D93C4F2F18100000D6F72F /* ggml-small.bin */,
-			);
-			path = Models;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -109,6 +84,7 @@
 			);
 			name = localwhisper;
 			packageProductDependencies = (
+				9D98E5EC166D4A96A25C2999 /* WhisperKit */,
 			);
 			productName = localwhisper;
 			productReference = A5D93BB02F18074D00D6F72F /* localwhisper.app */;
@@ -138,6 +114,9 @@
 			);
 			mainGroup = A5D93BA72F18074D00D6F72F;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				2FED78C33FD14A3AA545590C /* WhisperKit */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A5D93BB12F18074D00D6F72F /* Products */;
 			projectDirPath = "";
@@ -153,7 +132,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A5D93C502F18100000D6F72F /* ggml-small.bin in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -168,6 +146,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		2FED78C33FD14A3AA545590C /* WhisperKit */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/argmaxinc/WhisperKit";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.9.4;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		9D98E5EC166D4A96A25C2999 /* WhisperKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2FED78C33FD14A3AA545590C /* WhisperKit */;
+			productName = WhisperKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCBuildConfiguration section */
 		A5D93BB92F18074E00D6F72F /* Debug */ = {
@@ -319,17 +316,8 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_OBJC_BRIDGING_HEADER = "localwhisper/localwhisper-Bridging-Header.h";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/localwhisper",
-				);
-				HEADER_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/localwhisper/whisper.xcframework/macos-arm64_x86_64/whisper.framework/Headers",
-				);
 			};
 			name = Debug;
 		};
@@ -362,17 +350,8 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_OBJC_BRIDGING_HEADER = "localwhisper/localwhisper-Bridging-Header.h";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/localwhisper",
-				);
-				HEADER_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/localwhisper/whisper.xcframework/macos-arm64_x86_64/whisper.framework/Headers",
-				);
 			};
 			name = Release;
 		};

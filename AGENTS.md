@@ -5,7 +5,7 @@
   - `localwhisper/UI/` contains SwiftUI views (menu bar, settings).
   - `localwhisper/Services/` contains app services (audio capture, hotkeys, permissions, whisper inference).
   - `localwhisper/Assets.xcassets/` contains icons and color assets.
-- `Models/` contains Whisper model binaries (e.g. `Models/ggml-base.bin`).
+- Models are downloaded at runtime and stored under the app support directory (no bundled model binaries).
 - `localwhisper.xcodeproj/` is the Xcode project definition.
 
 ## Build, Test, and Development Commands
@@ -23,7 +23,7 @@
 - Name test files `SomethingTests.swift` and test methods `testSomethingBehavior()`.
 
 ## Commit & Pull Request Guidelines
-- Commit history uses short, imperative messages (e.g. "Fix build errors", "Add whisper.cpp XCFramework"). Keep subject lines concise.
+- Commit history uses short, imperative messages (e.g. "Fix build errors", "Add WhisperKit integration"). Keep subject lines concise.
 - PRs should describe user-visible changes, include reproduction steps, and mention permission impacts (microphone/accessibility) if relevant.
 
 ## Security & Configuration Notes

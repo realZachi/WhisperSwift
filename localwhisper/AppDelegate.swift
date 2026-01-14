@@ -73,15 +73,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        // Initialize Whisper service (loads model)
-        logToFile("🤖 Loading Whisper model...")
-        do {
-            whisperService = try await WhisperService()
-            logToFile("✅ Whisper model loaded successfully")
-        } catch {
-            logToFile("❌ Failed to load Whisper model: \(error)")
-            await showModelLoadError(error)
+        // Initialize Whisper service (model downloads in background if needed)
+        logToFile("🤖 Initializing WhisperKit service...")
+        whisperService = await WhisperService()
+        WhisperModelStatus.shared.requestDownload = { [weak self] in
+            guard let whisperService = self?.whisperService else { return }
+            Task {
+                await whisperService.startModelDownloadIfNeeded()
+            }
         }
+        logToFile("✅ WhisperKit service initialized")
 
         // Initialize hotkey manager
         logToFile("🎹 Setting up hotkey manager...")
@@ -165,23 +166,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             } else {
                 logToFile("⚠️ Empty transcription result")
             }
+        } catch WhisperError.modelNotReady {
+            logToFile("⚠️ Model not ready yet. Download in progress.")
         } catch {
             logToFile("❌ Transcription failed: \(error)")
         }
 
         await MainActor.run {
             statusBarController?.state = .idle
-        }
-    }
-
-    private func showModelLoadError(_ error: Error) async {
-        await MainActor.run {
-            let alert = NSAlert()
-            alert.messageText = "Failed to Load Whisper Model"
-            alert.informativeText = "The speech recognition model could not be loaded. Please ensure the model file exists.\n\nError: \(error.localizedDescription)"
-            alert.alertStyle = .critical
-            alert.addButton(withTitle: "OK")
-            alert.runModal()
         }
     }
 

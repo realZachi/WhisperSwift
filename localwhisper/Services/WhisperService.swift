@@ -6,118 +6,152 @@
 //
 
 import Foundation
-import whisper
+import WhisperKit
 
 actor WhisperService {
-    private var context: OpaquePointer?
-    private let modelName = "ggml-small"
+    private let modelName = "large-v3-turbo"
+    private let modelRepo = "argmaxinc/whisperkit-coreml"
+    private let modelPathDefaultsKey = "whisperkitModelPath"
+    private var pipe: WhisperKit?
+    private var isDownloading = false
 
-    init() async throws {
-        try await loadModel()
+    init() async {
+        await initialize()
     }
 
-    deinit {
-        if let context = context {
-            whisper_free(context)
-        }
+    func startModelDownloadIfNeeded() async {
+        await downloadModelIfNeeded()
     }
 
-    private func loadModel() async throws {
-        // Try to find model in bundle
-        guard let modelPath = Bundle.main.path(forResource: modelName, ofType: "bin") else {
-            // Try Resources/models folder
-            let resourcesPath = Bundle.main.resourcePath ?? ""
-            let modelsPath = (resourcesPath as NSString).appendingPathComponent("models/\(modelName).bin")
-
-            if FileManager.default.fileExists(atPath: modelsPath) {
-                try loadModelFromPath(modelsPath)
+    private func initialize() async {
+        await updateStatus(phase: .idle, progress: nil, message: "Model not downloaded")
+        if let existingPath = resolveExistingModelPath() {
+            do {
+                try await loadModel(from: existingPath)
                 return
+            } catch {
+                await updateStatus(phase: .failed, progress: nil, message: "Model load failed: \(error.localizedDescription)")
+                await log("❌ WhisperKit model load failed: \(error)")
             }
-
-            throw WhisperError.modelNotFound
         }
 
-        try loadModelFromPath(modelPath)
+        Task { [weak self] in
+            await self?.downloadModelIfNeeded()
+        }
     }
 
-    private func loadModelFromPath(_ path: String) throws {
-        // Initialize whisper context with default parameters
-        var params = whisper_context_default_params()
-        params.use_gpu = true  // Enable Metal GPU acceleration
+    private func candidateModelFolders() -> [URL] {
+        let fileManager = FileManager.default
+        var candidates: [URL] = []
 
-        context = whisper_init_from_file_with_params(path, params)
-
-        guard context != nil else {
-            throw WhisperError.modelLoadFailed
+        if let storedPath = UserDefaults.standard.string(forKey: modelPathDefaultsKey) {
+            candidates.append(URL(fileURLWithPath: storedPath))
         }
 
-        print("Whisper model loaded from: \(path)")
+        if let appSupport = try? fileManager.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        ) {
+            let appSupportRoot = appSupport.appendingPathComponent("LocalWhisper/WhisperKitModels", isDirectory: true)
+            if !fileManager.fileExists(atPath: appSupportRoot.path) {
+                try? fileManager.createDirectory(at: appSupportRoot, withIntermediateDirectories: true)
+            }
+            candidates.append(appSupportRoot.appendingPathComponent(modelName, isDirectory: true))
+        }
+
+        if let bundleURL = Bundle.main.resourceURL?
+            .appendingPathComponent("WhisperKitModels", isDirectory: true)
+            .appendingPathComponent(modelName, isDirectory: true) {
+            candidates.append(bundleURL)
+        }
+
+        return candidates
+    }
+
+    private func resolveExistingModelPath() -> String? {
+        let fileManager = FileManager.default
+        let candidates = candidateModelFolders()
+
+        for candidate in candidates where fileManager.fileExists(atPath: candidate.path) {
+            return candidate.path
+        }
+
+        return nil
+    }
+
+    private func loadModel(from path: String) async throws {
+        let config = WhisperKitConfig(
+            model: modelName,
+            modelFolder: path,
+            load: true,
+            download: false
+        )
+        pipe = try await WhisperKit(config)
+        UserDefaults.standard.set(path, forKey: modelPathDefaultsKey)
+        await updateStatus(phase: .ready, progress: 1.0, message: "Model ready")
+        await log("🤖 WhisperKit model loaded from: \(path)")
+    }
+
+    private func downloadModelIfNeeded() async {
+        guard pipe == nil else { return }
+        guard !isDownloading else { return }
+        isDownloading = true
+
+        await updateStatus(phase: .downloading, progress: 0, message: "Downloading model...")
+        await log("⬇️ Downloading WhisperKit model \(modelName)...")
+
+        do {
+            let modelURL = try await WhisperKit.download(
+                variant: modelName,
+                from: modelRepo,
+                progressCallback: { progress in
+                    let fraction = progress.fractionCompleted
+                    Task {
+                        await self.updateDownloadProgress(fraction: fraction)
+                    }
+                }
+            )
+            UserDefaults.standard.set(modelURL.path, forKey: modelPathDefaultsKey)
+            await log("⬇️ WhisperKit model downloaded to: \(modelURL.path)")
+            try await loadModel(from: modelURL.path)
+        } catch {
+            await updateStatus(phase: .failed, progress: nil, message: "Download failed: \(error.localizedDescription)")
+            await log("❌ WhisperKit model download failed: \(error)")
+        }
+
+        isDownloading = false
     }
 
     func transcribe(audioSamples: [Float]) async throws -> String {
-        guard let context = context else {
-            throw WhisperError.notInitialized
+        guard let pipe = pipe else {
+            throw WhisperError.modelNotReady
         }
 
-        logToFile("🤖 Starting transcription with \(audioSamples.count) samples")
+        await log("🤖 Starting transcription with \(audioSamples.count) samples")
 
         // Check audio levels
         let maxAmplitude = audioSamples.map { abs($0) }.max() ?? 0
         let avgAmplitude = audioSamples.map { abs($0) }.reduce(0, +) / Float(audioSamples.count)
-        logToFile("🔊 Audio levels - max: \(maxAmplitude), avg: \(avgAmplitude)")
+        await log("🔊 Audio levels - max: \(maxAmplitude), avg: \(avgAmplitude)")
 
-        // Configure whisper parameters for transcription
-        var params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY)
+        let options = DecodingOptions(
+            task: .transcribe,
+            language: "de",
+            temperature: 0.0,
+            skipSpecialTokens: true,
+            withoutTimestamps: true,
+            wordTimestamps: false
+        )
 
-        // Performance settings
-        params.n_threads = Int32(min(4, ProcessInfo.processInfo.activeProcessorCount))
-
-        // Output settings
-        params.print_progress = false
-        params.print_special = false
-        params.print_realtime = false
-        params.print_timestamps = false
-
-        // Translate to English (set to false to keep original language)
-        params.translate = false
-
-        // Don't use single segment mode - let Whisper decide
-        params.single_segment = false
-
-        // Run transcription with language set to German
-        logToFile("🤖 Running whisper_full with language: de")
-        let langString = "de"
-        let result = langString.withCString { langPtr in
-            params.language = langPtr
-            params.detect_language = false
-            return audioSamples.withUnsafeBufferPointer { samplesPtr in
-                whisper_full(context, params, samplesPtr.baseAddress, Int32(audioSamples.count))
-            }
-        }
-        logToFile("🤖 whisper_full returned: \(result)")
-
-        guard result == 0 else {
-            throw WhisperError.transcriptionFailed
-        }
-
-        // Collect transcribed text from all segments
-        let numSegments = whisper_full_n_segments(context)
-        logToFile("🤖 Number of segments: \(numSegments)")
-        var transcription = ""
-
-        for i in 0..<numSegments {
-            if let textPtr = whisper_full_get_segment_text(context, i) {
-                let segmentText = String(cString: textPtr)
-                logToFile("🤖 Segment \(i): '\(segmentText)'")
-                transcription += segmentText
-            }
-        }
-
-        logToFile("🤖 Raw transcription: '\(transcription)'")
+        let results = try await pipe.transcribe(audioArray: audioSamples, decodeOptions: options)
+        let transcription = results.map { $0.text }.joined()
+        await log("🤖 Raw transcription: '\(transcription)'")
 
         // Clean up the transcription
         let cleaned = cleanTranscription(transcription)
-        logToFile("🤖 Cleaned transcription: '\(cleaned)'")
+        await log("🤖 Cleaned transcription: '\(cleaned)'")
         return cleaned
     }
 
@@ -136,27 +170,38 @@ actor WhisperService {
 
     /// Get information about the loaded model
     func getModelInfo() -> String? {
-        guard context != nil else { return nil }
-        return "Whisper Small (Multilingual)"
+        guard pipe != nil else { return nil }
+        return "WhisperKit \(modelName)"
+    }
+
+    private func updateDownloadProgress(fraction: Double) async {
+        let percent = Int(fraction * 100)
+        await updateStatus(phase: .downloading, progress: fraction, message: "Downloading model... \(percent)%")
+    }
+
+    private func updateStatus(phase: WhisperModelStatus.Phase, progress: Double?, message: String) async {
+        await WhisperModelStatus.shared.update(
+            phase: phase,
+            progress: progress,
+            message: message,
+            modelName: modelName
+        )
+    }
+
+    private func log(_ message: String) async {
+        await MainActor.run {
+            logToFile(message)
+        }
     }
 }
 
 enum WhisperError: Error, LocalizedError {
-    case modelNotFound
-    case modelLoadFailed
-    case notInitialized
-    case transcriptionFailed
+    case modelNotReady
 
     var errorDescription: String? {
         switch self {
-        case .modelNotFound:
-            return "Whisper model file not found. Please ensure ggml-small.bin is in the app bundle."
-        case .modelLoadFailed:
-            return "Failed to load the Whisper model."
-        case .notInitialized:
-            return "Whisper service is not initialized."
-        case .transcriptionFailed:
-            return "Transcription failed."
+        case .modelNotReady:
+            return "The WhisperKit model is still downloading or not available yet."
         }
     }
 }

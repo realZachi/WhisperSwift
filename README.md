@@ -55,6 +55,16 @@ Das war's. Keine Buttons, keine Menüs, keine Ablenkung.
 - Apple Silicon Mac (M1, M2, M3, ...)
 - Mikrofon-Berechtigung
 - Accessibility-Berechtigung (für Text-Einfügung)
+- Internetverbindung beim ersten Start (Modell-Download)
+
+---
+
+## Modelle
+
+Beim ersten Start lädt LocalWhisper das WhisperKit-Modell **large-v3-turbo** automatisch herunter und zeigt den Downloadstatus an. Optional kannst du das Modell vorab lokal bereitstellen:
+
+- `~/Library/Application Support/LocalWhisper/WhisperKitModels/<model-name>`
+- `Resources/WhisperKitModels/<model-name>` (im App-Bundle)
 
 ---
 
@@ -62,7 +72,7 @@ Das war's. Keine Buttons, keine Menüs, keine Ablenkung.
 
 LocalWhisper wurde mit Datenschutz als oberste Priorität entwickelt:
 
-- **Keine Netzwerkverbindungen** - Die App kommuniziert mit keinem Server
+- **Nur einmaliger Modell-Download** - Danach läuft die App vollständig offline
 - **Keine Telemetrie** - Keine Nutzungsdaten, keine Analytics
 - **Keine Speicherung** - Audio wird nach der Transkription sofort verworfen
 - **Open Source** - Der komplette Code ist einsehbar
@@ -73,7 +83,7 @@ Deine Worte gehören dir.
 
 ## Technologie
 
-LocalWhisper nutzt [whisper.cpp](https://github.com/ggerganov/whisper.cpp), eine hochoptimierte Implementierung von OpenAI's Whisper Spracherkennungsmodell. Die Metal-Beschleunigung sorgt für maximale Performance auf Apple Silicon.
+LocalWhisper nutzt [WhisperKit](https://github.com/argmaxinc/WhisperKit), eine Swift- und Core-ML-optimierte Implementierung für on-device Spracherkennung. Die Modelle laufen vollständig lokal auf Apple Silicon.
 
 ---
 

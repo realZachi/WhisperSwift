@@ -13,7 +13,7 @@ actor AudioRecorder {
     private var audioBuffer: [Float] = []
     private var isRecording = false
 
-    // Whisper requires 16kHz sample rate
+    // WhisperKit requires 16kHz sample rate
     private let targetSampleRate: Double = 16000
 
     // Callback for audio level updates (for waveform visualization)
@@ -34,7 +34,7 @@ actor AudioRecorder {
         let inputNode = audioEngine.inputNode
         let inputFormat = inputNode.outputFormat(forBus: 0)
 
-        // Create target format for Whisper (16kHz, mono, float32)
+        // Create target format for WhisperKit (16kHz, mono, float32)
         guard let targetFormat = AVAudioFormat(
             commonFormat: .pcmFormatFloat32,
             sampleRate: targetSampleRate,

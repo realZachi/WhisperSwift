@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-LocalWhisper is a native macOS menu bar application for local, private speech-to-text transcription. It uses whisper.cpp (OpenAI Whisper) with Metal GPU acceleration on Apple Silicon. Users hold a hotkey (Fn, Option, or Control), speak, release, and transcribed text is automatically inserted into the focused application.
+LocalWhisper is a native macOS menu bar application for local, private speech-to-text transcription. It uses WhisperKit (OpenAI Whisper) optimized for Apple Silicon. Users hold a hotkey (Fn, Option, or Control), speak, release, and transcribed text is automatically inserted into the focused application.
 
 - **Platform**: macOS 13.0+, Apple Silicon optimized
 - **Language**: Swift 5.0, SwiftUI
@@ -36,7 +36,7 @@ localwhisper/
 ├── AppDelegate.swift       # Lifecycle & service orchestration, recording workflow
 ├── localwhisperApp.swift   # SwiftUI entry point
 ├── Services/
-│   ├── WhisperService.swift        # Speech recognition (whisper.cpp C API, Swift actor)
+│   ├── WhisperService.swift        # Speech recognition (WhisperKit, Swift actor)
 │   ├── AudioRecorder.swift         # Audio capture, 16kHz conversion, normalization (actor)
 │   ├── HotkeyManager.swift         # Global hotkey detection (NSEvent + CGEvent tap)
 │   ├── PermissionManager.swift     # Microphone & accessibility permissions (singleton)
@@ -50,8 +50,8 @@ localwhisper/
 **Data Flow**: Hotkey press → AudioRecorder captures → Hotkey release → WhisperService transcribes → TextInsertionService pastes
 
 **Key Dependencies**:
-- whisper.cpp v1.7.5 (XCFramework) - bridged via `localwhisper-Bridging-Header.h`
-- Whisper Small model: `Models/ggml-small.bin` (465MB, bundled)
+- WhisperKit (Swift Package)
+- Model: `large-v3-turbo` (downloaded on first launch)
 
 ## Coding Conventions
 
@@ -66,4 +66,4 @@ localwhisper/
 - **Debug logging**: Writes to `/tmp/localwhisper.log`
 - **Default language**: German (hardcoded in WhisperService, supports 90+ languages)
 - **Entitlements**: Edit `localwhisper/localwhisper.entitlements` carefully when adding capabilities
-- **No network calls**: Privacy-first design, no telemetry or cloud features
+- **Network usage**: One-time model download on first launch; no telemetry or cloud features

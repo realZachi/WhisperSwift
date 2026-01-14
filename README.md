@@ -24,12 +24,15 @@ A macOS menu bar app for push-to-talk speech recognition powered by whisper.cpp.
 open localwhisper.xcodeproj
 ```
 
-### 2. Add whisper.cpp Package
+### 2. Link whisper.xcframework
 
-1. In Xcode, go to **File > Add Package Dependencies...**
-2. Enter URL: `https://github.com/ggml-org/whisper.cpp`
-3. Select version `1.7.5` or later
-4. Add to target `localwhisper`
+The XCFramework is already downloaded in `localwhisper/whisper.xcframework`.
+
+1. In Xcode, select the **localwhisper** target
+2. Go to **General** → **Frameworks, Libraries, and Embedded Content**
+3. Click **+** → **Add Other...** → **Add Files...**
+4. Select `localwhisper/whisper.xcframework`
+5. Set **Embed** to **Embed & Sign**
 
 ### 3. Configure Project Settings
 

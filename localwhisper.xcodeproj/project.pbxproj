@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A5D93C502F18100000D6F72F /* ggml-base.bin in Resources */ = {isa = PBXBuildFile; fileRef = A5D93C4F2F18100000D6F72F /* ggml-base.bin */; };
+		A5D93C502F18100000D6F72F /* ggml-small.bin in Resources */ = {isa = PBXBuildFile; fileRef = A5D93C4F2F18100000D6F72F /* ggml-small.bin */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -25,7 +25,7 @@
 
 /* Begin PBXFileReference section */
 		A5D93BB02F18074D00D6F72F /* localwhisper.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = localwhisper.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		A5D93C4F2F18100000D6F72F /* ggml-base.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; path = "ggml-base.bin"; sourceTree = "<group>"; };
+		A5D93C4F2F18100000D6F72F /* ggml-small.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; path = "ggml-small.bin"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
@@ -83,7 +83,7 @@
 		A5D93C4E2F18100000D6F72F /* Models */ = {
 			isa = PBXGroup;
 			children = (
-				A5D93C4F2F18100000D6F72F /* ggml-base.bin */,
+				A5D93C4F2F18100000D6F72F /* ggml-small.bin */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -153,7 +153,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A5D93C502F18100000D6F72F /* ggml-base.bin in Resources */,
+				A5D93C502F18100000D6F72F /* ggml-small.bin in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

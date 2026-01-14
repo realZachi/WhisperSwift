@@ -10,7 +10,7 @@ import whisper
 
 actor WhisperService {
     private var context: OpaquePointer?
-    private let modelName = "ggml-base"
+    private let modelName = "ggml-small"
 
     init() async throws {
         try await loadModel()
@@ -137,7 +137,7 @@ actor WhisperService {
     /// Get information about the loaded model
     func getModelInfo() -> String? {
         guard context != nil else { return nil }
-        return "Whisper Base (Multilingual)"
+        return "Whisper Small (Multilingual)"
     }
 }
 
@@ -150,7 +150,7 @@ enum WhisperError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .modelNotFound:
-            return "Whisper model file not found. Please ensure ggml-base.bin is in the app bundle."
+            return "Whisper model file not found. Please ensure ggml-small.bin is in the app bundle."
         case .modelLoadFailed:
             return "Failed to load the Whisper model."
         case .notInitialized:

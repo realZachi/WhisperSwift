@@ -20,6 +20,11 @@ open localwhisper.xcodeproj
 xcodebuild -project localwhisper.xcodeproj -scheme localwhisper -configuration Debug build
 ```
 
+**WICHTIG**: Nach jeder Code-Änderung, die einen Build erfordert (Swift-Dateien, Ressourcen, Projekteinstellungen), MUSS automatisch gebaut werden mit:
+```bash
+xcodebuild -project localwhisper.xcodeproj -scheme localwhisper -configuration Debug build
+```
+
 No test target exists currently. If adding tests, use XCTest and place files under a `localwhisperTests/` target.
 
 ## Architecture
@@ -46,7 +51,7 @@ localwhisper/
 
 **Key Dependencies**:
 - whisper.cpp v1.7.5 (XCFramework) - bridged via `localwhisper-Bridging-Header.h`
-- Whisper Base model: `Models/ggml-base.bin` (141MB, bundled)
+- Whisper Small model: `Models/ggml-small.bin` (465MB, bundled)
 
 ## Coding Conventions
 

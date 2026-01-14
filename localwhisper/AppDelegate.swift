@@ -160,8 +160,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 // Insert text into focused application
                 await MainActor.run {
                     logToFile("📝 Inserting text...")
-                    textInsertionService.insertText(transcription)
-                    logToFile("✅ Text inserted")
+                    let outcome = textInsertionService.insertText(transcription)
+                    switch outcome {
+                    case .inserted:
+                        logToFile("✅ Text inserted")
+                    case .copiedToClipboard:
+                        logToFile("📋 Text copied to clipboard (enable Accessibility for auto-insert)")
+                    case .empty:
+                        logToFile("⚠️ Empty transcription result")
+                    }
                 }
             } else {
                 logToFile("⚠️ Empty transcription result")

@@ -9,11 +9,36 @@ import Cocoa
 import Carbon
 
 class TextInsertionService {
+    enum InsertionOutcome {
+        case inserted
+        case copiedToClipboard
+        case empty
+    }
 
-    /// Insert text into the currently focused text field using clipboard and Cmd+V
-    func insertText(_ text: String) {
-        guard !text.isEmpty else { return }
+    private let accessibilityInsertPromptKey = "didPromptAccessibilityInsert"
 
+    /// Insert text into the currently focused text field using Accessibility or clipboard.
+    @discardableResult
+    func insertText(_ text: String) -> InsertionOutcome {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return .empty }
+
+        guard AXIsProcessTrusted() else {
+            copyToClipboard(trimmed)
+            promptAccessibilityIfNeeded()
+            logToFile("⚠️ Accessibility not granted - copied transcription to clipboard")
+            return .copiedToClipboard
+        }
+
+        if insertTextViaAccessibility(trimmed) {
+            return .inserted
+        }
+
+        pasteViaClipboard(trimmed)
+        return .inserted
+    }
+
+    private func pasteViaClipboard(_ text: String) {
         let pasteboard = NSPasteboard.general
 
         // Save current clipboard content
@@ -36,6 +61,12 @@ class TextInsertionService {
                 }
             }
         }
+    }
+
+    private func copyToClipboard(_ text: String) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
     }
 
     /// Simulate Cmd+V keyboard shortcut
@@ -62,6 +93,14 @@ class TextInsertionService {
         // Post events
         keyDown.post(tap: .cghidEventTap)
         keyUp.post(tap: .cghidEventTap)
+    }
+
+    private func promptAccessibilityIfNeeded() {
+        guard !UserDefaults.standard.bool(forKey: accessibilityInsertPromptKey) else { return }
+        UserDefaults.standard.set(true, forKey: accessibilityInsertPromptKey)
+        DispatchQueue.main.async {
+            _ = PermissionManager.shared.requestAccessibilityAccess()
+        }
     }
 
     /// Alternative: Insert text character by character (slower but more reliable in some apps)
@@ -91,30 +130,16 @@ extension TextInsertionService {
 
     /// Try to insert text using Accessibility API directly
     /// This can work even when Cmd+V doesn't (e.g., in some terminal apps)
-    func insertTextViaAccessibility(_ text: String) {
+    func insertTextViaAccessibility(_ text: String) -> Bool {
         guard let focusedElement = getFocusedElement() else {
-            // Fall back to clipboard method
-            insertText(text)
-            return
+            return false
         }
 
         // Try to set the value directly
         var textValue: CFTypeRef = text as CFTypeRef
         let result = AXUIElementSetAttributeValue(focusedElement, kAXValueAttribute as CFString, textValue)
 
-        if result != .success {
-            // If direct setting fails, try inserting at cursor position
-            if let currentValue = getAttributeValue(focusedElement, attribute: kAXValueAttribute) as? String {
-                // Get selected range
-                if let selectedRange = getAttributeValue(focusedElement, attribute: kAXSelectedTextRangeAttribute) {
-                    // Insert at cursor - fall back to paste method
-                    insertText(text)
-                }
-            } else {
-                // Fall back to paste method
-                insertText(text)
-            }
-        }
+        return result == .success
     }
 
     private func getFocusedElement() -> AXUIElement? {

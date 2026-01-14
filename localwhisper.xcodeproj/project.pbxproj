@@ -322,6 +322,14 @@
 				SWIFT_OBJC_BRIDGING_HEADER = "localwhisper/localwhisper-Bridging-Header.h";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/localwhisper",
+				);
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/localwhisper/whisper.xcframework/macos-arm64_x86_64/whisper.framework/Headers",
+				);
 			};
 			name = Debug;
 		};
@@ -357,6 +365,14 @@
 				SWIFT_OBJC_BRIDGING_HEADER = "localwhisper/localwhisper-Bridging-Header.h";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/localwhisper",
+				);
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/localwhisper/whisper.xcframework/macos-arm64_x86_64/whisper.framework/Headers",
+				);
 			};
 			name = Release;
 		};

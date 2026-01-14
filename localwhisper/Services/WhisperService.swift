@@ -68,7 +68,6 @@ actor WhisperService {
 
         // Performance settings
         params.n_threads = Int32(ProcessInfo.processInfo.activeProcessorCount)
-        params.speed_up = false  // Disable speed_up for better accuracy
 
         // Output settings
         params.print_progress = false

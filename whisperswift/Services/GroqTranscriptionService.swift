@@ -15,7 +15,6 @@ actor GroqTranscriptionService {
     private let languageDefaultsKey = "groqLanguage"
 
     private let defaultModel = "whisper-large-v3-turbo"
-    private let defaultLanguage = "de"
     private let cleanupModel = "moonshotai/kimi-k2-instruct-0905"
 
     private let cleanupSystemPrompt = #"""
@@ -209,9 +208,7 @@ Rules: ONLY delete — never paraphrase, transform, add words, or correct gramma
     }
 
     private func resolveLanguage() -> String? {
-        guard let stored = UserDefaults.standard.string(forKey: languageDefaultsKey) else {
-            return defaultLanguage
-        }
+        let stored = UserDefaults.standard.string(forKey: languageDefaultsKey) ?? ""
         let trimmed = stored.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }

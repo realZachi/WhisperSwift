@@ -34,7 +34,7 @@ struct GeneralSettingsView: View {
     @AppStorage("playSounds") private var playSounds = true
     @AppStorage("groqApiKey") private var groqApiKey = ""
     @AppStorage("groqModel") private var groqModel = "whisper-large-v3-turbo"
-    @AppStorage("groqLanguage") private var groqLanguage = "de"
+    @AppStorage("groqLanguage") private var groqLanguage = ""
 
     var body: some View {
         Form {

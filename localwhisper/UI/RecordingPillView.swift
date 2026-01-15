@@ -75,180 +75,183 @@ struct MorphingIndicatorView: View {
     var isProcessing: Bool
     var morphProgress: CGFloat
 
-    @State private var dotAnimationPhase: CGFloat = 0
-    @State private var pulseRingPhase: CGFloat = 0
-    @State private var glowRotation: Double = 0
-
-    private let baseCircleSize: CGFloat = 32
-    private let dotSize: CGFloat = 6
-    private let dotSpacing: CGFloat = 10
+    @State private var processingRotation: Double = 0
 
     var body: some View {
-        ZStack {
-            // Recording circle - fades and splits
-            recordingCircle
-                .opacity(1 - morphProgress)
-                .scaleEffect(1 + morphProgress * 0.3)
-                .blur(radius: morphProgress * 4)
+        GeometryReader { proxy in
+            let size = min(proxy.size.width, proxy.size.height)
+            let level = clamped(CGFloat(audioMonitor.smoothedLevel))
+            let peak = clamped(CGFloat(audioMonitor.peakLevel))
+            let plateSize = size * 0.88
 
-            // Processing dots - emerge from center
-            processingDots
-                .opacity(morphProgress)
-                .scaleEffect(0.5 + morphProgress * 0.5)
+            ZStack {
+                basePlate(size: plateSize, level: level)
+
+                recordingContent(size: plateSize, level: level, peak: peak)
+                    .opacity(1 - morphProgress)
+                    .scaleEffect(1 - morphProgress * 0.05)
+
+                processingContent(size: plateSize)
+                    .opacity(morphProgress)
+                    .scaleEffect(0.9 + morphProgress * 0.1)
+            }
+            .frame(width: size, height: size)
         }
         .onAppear {
-            withAnimation(.linear(duration: 2).repeatForever(autoreverses: false)) {
-                dotAnimationPhase = 1
-            }
-            withAnimation(.linear(duration: 3).repeatForever(autoreverses: false)) {
-                pulseRingPhase = 1
-            }
-            withAnimation(.linear(duration: 8).repeatForever(autoreverses: false)) {
-                glowRotation = 360
+            if isProcessing {
+                startProcessingRotation()
             }
         }
+        .onChange(of: isProcessing) { _, newValue in
+            if newValue {
+                startProcessingRotation()
+            }
+        }
+        .animation(.easeOut(duration: 0.12), value: audioMonitor.smoothedLevel)
+        .animation(.easeOut(duration: 0.18), value: audioMonitor.peakLevel)
     }
 
-    // MARK: - Recording Circle
+    private func basePlate(size: CGFloat, level: CGFloat) -> some View {
+        ZStack {
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            Color(white: 0.18),
+                            Color(white: 0.12),
+                            Color(white: 0.08)
+                        ],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: size * 0.6
+                    )
+                )
 
-    private var recordingCircle: some View {
-        let audioLevel = CGFloat(audioMonitor.smoothedLevel)
-        let peakLevel = CGFloat(audioMonitor.peakLevel)
+            Circle()
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.22),
+                            Color.white.opacity(0.05)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
 
-        // Dynamic scaling: base size + significant growth with audio
-        let dynamicScale = 1.0 + audioLevel * 0.8 + peakLevel * 0.3
-        let currentSize = baseCircleSize * dynamicScale
+            Circle()
+                .stroke(Color.white.opacity(0.08 + level * 0.12), lineWidth: 1)
+                .blur(radius: 1)
+        }
+        .frame(width: size, height: size)
+        .shadow(color: Color.black.opacity(0.35), radius: 10, y: 6)
+    }
 
-        // Glow intensity based on audio
-        let glowIntensity = 0.4 + audioLevel * 0.6
-        let glowRadius = 8 + audioLevel * 25
+    private func recordingContent(size: CGFloat, level: CGFloat, peak: CGFloat) -> some View {
+        let ringSize = size * 0.86
+        let haloSize = size * 0.94
+        let ringWidth = 2 + level * 2
+        let arcLength = 0.18 + level * 0.55
 
         return ZStack {
-            // Expanding pulse rings (multiple layers)
-            ForEach(0..<3, id: \.self) { index in
-                let ringDelay = CGFloat(index) * 0.33
-                let ringPhase = (pulseRingPhase + ringDelay).truncatingRemainder(dividingBy: 1.0)
-                let ringScale = 1.0 + ringPhase * (1.5 + audioLevel * 1.0)
-                let ringOpacity = (1.0 - ringPhase) * (0.3 + audioLevel * 0.4)
-
-                Circle()
-                    .stroke(Color.white.opacity(ringOpacity), lineWidth: 1.5 - ringPhase)
-                    .frame(width: currentSize, height: currentSize)
-                    .scaleEffect(ringScale)
-            }
-
-            // Ambient glow layer (rotating)
             Circle()
                 .fill(
+                    RadialGradient(
+                        colors: [
+                            Color.cyan.opacity(0.22 + level * 0.35),
+                            Color.clear
+                        ],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: haloSize * 0.55
+                    )
+                )
+                .frame(width: haloSize, height: haloSize)
+
+            Circle()
+                .trim(from: 0, to: arcLength)
+                .stroke(
                     AngularGradient(
                         colors: [
-                            Color.white.opacity(0.1 + audioLevel * 0.2),
-                            Color.cyan.opacity(0.1 + audioLevel * 0.15),
-                            Color.white.opacity(0.1 + audioLevel * 0.2),
-                            Color.purple.opacity(0.1 + audioLevel * 0.15),
-                            Color.white.opacity(0.1 + audioLevel * 0.2)
+                            Color.white.opacity(0.2),
+                            Color.cyan.opacity(0.8),
+                            Color.white.opacity(0.2)
                         ],
                         center: .center
-                    )
+                    ),
+                    style: StrokeStyle(lineWidth: ringWidth, lineCap: .round)
                 )
-                .frame(width: currentSize + 30, height: currentSize + 30)
-                .blur(radius: 15)
-                .rotationEffect(.degrees(glowRotation))
+                .rotationEffect(.degrees(-90))
+                .frame(width: ringSize, height: ringSize)
 
-            // Outer soft glow
-            Circle()
-                .fill(Color.white.opacity(0.15 + audioLevel * 0.25))
-                .frame(width: currentSize + 20, height: currentSize + 20)
-                .blur(radius: 12)
-
-            // Main orb with gradient
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            Color.white,
-                            Color.white.opacity(0.95),
-                            Color(white: 0.9)
-                        ],
-                        center: .center,
-                        startRadius: 0,
-                        endRadius: currentSize / 2
-                    )
-                )
-                .frame(width: currentSize, height: currentSize)
-                .shadow(color: Color.white.opacity(glowIntensity), radius: glowRadius)
-                .shadow(color: Color.white.opacity(glowIntensity * 0.5), radius: glowRadius * 1.5)
-
-            // Inner bright core (intensifies with voice)
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            Color.white,
-                            Color.white.opacity(0.8 + audioLevel * 0.2),
-                            Color.clear
-                        ],
-                        center: .center,
-                        startRadius: 0,
-                        endRadius: currentSize / 3
-                    )
-                )
-                .frame(width: currentSize * 0.6, height: currentSize * 0.6)
-                .blur(radius: 2)
-
-            // Specular highlight (top-left shine)
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            Color.white.opacity(0.9),
-                            Color.clear
-                        ],
-                        center: UnitPoint(x: 0.3, y: 0.3),
-                        startRadius: 0,
-                        endRadius: currentSize / 4
-                    )
-                )
-                .frame(width: currentSize * 0.5, height: currentSize * 0.5)
-                .offset(x: -currentSize * 0.15, y: -currentSize * 0.15)
-
-            // Voice activity burst effect
-            if audioLevel > 0.3 {
-                ForEach(0..<6, id: \.self) { index in
-                    let angle = Double(index) * 60.0
-                    let burstDistance = 8 + audioLevel * 20
-                    let xOffset = cos(angle * .pi / 180) * burstDistance
-                    let yOffset = sin(angle * .pi / 180) * burstDistance
-
-                    Circle()
-                        .fill(Color.white.opacity(0.4 + audioLevel * 0.4))
-                        .frame(width: 3 + audioLevel * 4, height: 3 + audioLevel * 4)
-                        .blur(radius: 1)
-                        .offset(x: xOffset, y: yOffset)
-                }
-            }
+            waveformBars(size: size, level: level, peak: peak)
         }
-        .animation(.easeOut(duration: 0.06), value: audioMonitor.smoothedLevel)
-        .animation(.easeOut(duration: 0.1), value: audioMonitor.peakLevel)
+        .frame(width: size, height: size)
     }
 
-    // MARK: - Processing Dots
+    private func processingContent(size: CGFloat) -> some View {
+        let ringSize = size * 0.56
 
-    private var processingDots: some View {
-        HStack(spacing: dotSpacing) {
-            ForEach(0..<3, id: \.self) { index in
-                let delay = Double(index) * 0.15
-                let phase = (dotAnimationPhase + delay).truncatingRemainder(dividingBy: 1.0)
-                let wave = sin(phase * .pi * 2) * 0.5 + 0.5
+        return ZStack {
+            Circle()
+                .stroke(Color.white.opacity(0.18), lineWidth: 2)
 
-                Circle()
-                    .fill(Color.white.opacity(0.7 + wave * 0.3))
-                    .frame(width: dotSize, height: dotSize)
-                    .scaleEffect(0.7 + wave * 0.3)
-                    .offset(y: -wave * 3)
-                    .shadow(color: .white.opacity(0.5), radius: 4)
+            Circle()
+                .trim(from: 0, to: 0.22)
+                .stroke(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.95),
+                            Color.cyan.opacity(0.45)
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    ),
+                    style: StrokeStyle(lineWidth: 3, lineCap: .round)
+                )
+                .rotationEffect(.degrees(processingRotation))
+        }
+        .frame(width: ringSize, height: ringSize)
+    }
+
+    private func waveformBars(size: CGFloat, level: CGFloat, peak: CGFloat) -> some View {
+        let maxHeight = size * 0.32
+        let minHeight = size * 0.12
+        let weights: [CGFloat] = [0.35, 0.6, 0.95, 0.6, 0.35]
+        let intensity = clamped(level * 0.9 + peak * 0.25)
+
+        return HStack(spacing: size * 0.05) {
+            ForEach(0..<weights.count, id: \.self) { index in
+                let weight = weights[index]
+                let height = minHeight + (maxHeight - minHeight) * clamped(intensity * weight + 0.08)
+
+                Capsule()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.95),
+                                Color.white.opacity(0.6)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .frame(width: size * 0.045, height: height)
+                    .shadow(color: Color.white.opacity(0.15 + level * 0.25), radius: 2, y: 1)
             }
         }
+    }
+
+    private func startProcessingRotation() {
+        processingRotation = 0
+        withAnimation(.linear(duration: 1.4).repeatForever(autoreverses: false)) {
+            processingRotation = 360
+        }
+    }
+
+    private func clamped(_ value: CGFloat) -> CGFloat {
+        min(max(value, 0), 1)
     }
 }
 

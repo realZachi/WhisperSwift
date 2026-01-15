@@ -107,6 +107,9 @@ private struct PillContainerView: View {
 
     var body: some View {
         let _ = stateManager.state // Force observation
-        RecordingPillView(audioMonitor: audioMonitor, state: stateManager.state)
+        ZStack {
+            RecordingPillView(audioMonitor: audioMonitor, state: stateManager.state)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
 }

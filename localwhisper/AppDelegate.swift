@@ -159,6 +159,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             if !transcription.isEmpty {
                 logToFile("✅ Transcription: \(transcription)")
 
+                let cleaned: String
+                do {
+                    cleaned = try await groqService.cleanTranscription(transcription)
+                    if cleaned != transcription {
+                        logToFile("✅ Cleaned transcription: \(cleaned)")
+                    }
+                } catch {
+                    logToFile("⚠️ Cleanup failed, using raw transcription: \(error)")
+                    cleaned = transcription
+                }
+
                 // Insert text into focused application
                 await MainActor.run {
                     let snapshot = contextService?.captureSnapshot()
@@ -170,8 +181,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                         }
                     }
 
-                    let contextualized = contextService?.applyContext(to: transcription, snapshot: snapshot) ?? transcription
-                    if contextualized != transcription {
+                    let contextualized = contextService?.applyContext(to: cleaned, snapshot: snapshot) ?? cleaned
+                    if contextualized != cleaned {
                         logToFile("🧠 Contextualized transcription: \(contextualized)")
                     }
 

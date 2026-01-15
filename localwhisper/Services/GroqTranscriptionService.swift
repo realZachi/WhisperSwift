@@ -9,12 +9,50 @@ import Foundation
 
 actor GroqTranscriptionService {
     private let endpoint = URL(string: "https://api.groq.com/openai/v1/audio/transcriptions")!
+    private let cleanupEndpoint = URL(string: "https://api.groq.com/openai/v1/chat/completions")!
     private let apiKeyDefaultsKey = "groqApiKey"
     private let modelDefaultsKey = "groqModel"
     private let languageDefaultsKey = "groqLanguage"
 
     private let defaultModel = "whisper-large-v3-turbo"
     private let defaultLanguage = "de"
+    private let cleanupModel = "moonshotai/kimi-k2-instruct-0905"
+
+    private let cleanupSystemPrompt = #"""
+You are a transcript editor. Your task is to convert raw speech transcriptions into clean, readable text while preserving the speaker's original meaning, language, and style.
+
+## What to remove:
+- False starts and self-corrections (keep only the final intended version)
+- Filler words (um, uh, äh, euh, etto, etc.)
+- Stutters and repetitions
+- Verbal backtracking ("no wait", "I mean", "actually no", "sorry")
+- Abandoned sentence fragments that were restarted
+
+## What to preserve absolutely:
+- The original language of the transcript
+- The speaker's exact vocabulary and word choices
+- Original spelling, capitalization, and formatting of terms
+- Sentence structure — do not split or merge sentences
+- Tone and register (formal/informal, mixed languages, slang)
+- All substantive content and meaning
+- Code-switching and technical terms exactly as spoken
+
+## Strict rules:
+1. NEVER paraphrase, summarize, or rewrite
+2. NEVER change words to synonyms or "better" alternatives
+3. NEVER correct grammar, spelling, or capitalization choices
+4. NEVER add words not spoken (no "I will", "the", etc.)
+5. NEVER change perspective or restructure for "proper" writing
+6. ONLY delete — never transform or replace
+
+Your job is deletion, not editing. If the speaker said "fix das", output "fix das" — not "behebe das Problem".
+
+## Output:
+Return only the cleaned transcript. No commentary, no explanations, no quotation marks.
+"""#
+
+    private let cleanupExampleUser = "In meiner context-service -swift datei gibt es ein problem, fix das und korrigiere danach die ach ne sorry korrigiere zuerst die readme und fix das dann."
+    private let cleanupExampleAssistant = "In meiner context-service-swift datei gibt es ein problem, fix das und korrigiere danach die readme."
 
     func transcribe(recording: AudioRecording) async throws -> String {
         guard let apiKey = resolveApiKey(), !apiKey.isEmpty else {
@@ -75,6 +113,61 @@ actor GroqTranscriptionService {
             logToFile("✅ Groq transcription received")
         }
         return cleaned
+    }
+
+    func cleanTranscription(_ transcript: String) async throws -> String {
+        guard let apiKey = resolveApiKey(), !apiKey.isEmpty else {
+            throw GroqTranscriptionError.missingApiKey
+        }
+
+        var request = URLRequest(url: cleanupEndpoint)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+
+        let messages = [
+            GroqChatMessage(role: "system", content: cleanupSystemPrompt),
+            GroqChatMessage(role: "user", content: cleanupExampleUser),
+            GroqChatMessage(role: "assistant", content: cleanupExampleAssistant),
+            GroqChatMessage(role: "user", content: transcript)
+        ]
+
+        let payload = GroqChatCompletionRequest(
+            messages: messages,
+            model: cleanupModel,
+            temperature: 0.6,
+            maxCompletionTokens: 4096,
+            topP: 1,
+            stream: false,
+            stop: nil
+        )
+
+        request.httpBody = try JSONEncoder().encode(payload)
+
+        await MainActor.run {
+            logToFile("🌐 Sending transcript to Groq cleanup (model: \(cleanupModel))")
+        }
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw GroqTranscriptionError.invalidResponse
+        }
+
+        guard (200...299).contains(httpResponse.statusCode) else {
+            let body = String(data: data, encoding: .utf8) ?? ""
+            throw GroqTranscriptionError.requestFailed(statusCode: httpResponse.statusCode, body: body)
+        }
+
+        let decoded = try JSONDecoder().decode(GroqChatCompletionResponse.self, from: data)
+        guard let content = decoded.choices.first?.message.content else {
+            throw GroqTranscriptionError.invalidResponse
+        }
+
+        await MainActor.run {
+            logToFile("✅ Groq cleanup received")
+        }
+
+        return content.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func resolveApiKey() -> String? {
@@ -189,6 +282,39 @@ enum GroqTranscriptionError: Error, LocalizedError {
 
 private struct GroqTranscriptionResponse: Decodable {
     let text: String
+}
+
+private struct GroqChatCompletionRequest: Encodable {
+    let messages: [GroqChatMessage]
+    let model: String
+    let temperature: Double
+    let maxCompletionTokens: Int
+    let topP: Double
+    let stream: Bool
+    let stop: String?
+
+    enum CodingKeys: String, CodingKey {
+        case messages
+        case model
+        case temperature
+        case maxCompletionTokens = "max_completion_tokens"
+        case topP = "top_p"
+        case stream
+        case stop
+    }
+}
+
+private struct GroqChatMessage: Codable {
+    let role: String
+    let content: String
+}
+
+private struct GroqChatCompletionResponse: Decodable {
+    let choices: [GroqChatChoice]
+}
+
+private struct GroqChatChoice: Decodable {
+    let message: GroqChatMessage
 }
 
 private extension Data {

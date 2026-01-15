@@ -29,6 +29,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var textInsertionService: TextInsertionService?
     private var recordingPillController: RecordingPillController?
     private var contextService: ContextService?
+    private var isRecording = false
+    private var isProcessing = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         logToFile("🚀 App started")
@@ -36,7 +38,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             "selectedHotkey": "fn",
             "playSounds": true,
             "groqModel": "whisper-large-v3-turbo",
-            "groqLanguage": "de"
+            "groqLanguage": "de",
+            "handsFreeMode": false
         ])
 
         // Initialize status bar
@@ -89,15 +92,41 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         hotkeyManager = HotkeyManager(
             onKeyDown: { [weak self] in
                 logToFile("⬇️ Key DOWN detected")
-                Task { await self?.startRecording() }
+                Task { await self?.handleHotkeyDown() }
             },
             onKeyUp: { [weak self] in
                 logToFile("⬆️ Key UP detected")
-                Task { await self?.stopRecordingAndTranscribe() }
+                Task { await self?.handleHotkeyUp() }
             }
         )
 
         logToFile("✅ LocalWhisper initialized successfully")
+    }
+
+    private func handleHotkeyDown() async {
+        if isHandsFreeModeEnabled() {
+            if isProcessing {
+                logToFile("⏳ Ignoring hotkey while processing")
+                return
+            }
+
+            if isRecording {
+                await stopRecordingAndTranscribe()
+            } else {
+                await startRecording()
+            }
+        } else {
+            await startRecording()
+        }
+    }
+
+    private func handleHotkeyUp() async {
+        guard !isHandsFreeModeEnabled() else { return }
+        await stopRecordingAndTranscribe()
+    }
+
+    private func isHandsFreeModeEnabled() -> Bool {
+        UserDefaults.standard.bool(forKey: "handsFreeMode")
     }
 
     private func startRecording() async {
@@ -105,6 +134,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             logToFile("❌ audioRecorder is nil")
             return
         }
+
+        guard !isRecording && !isProcessing else {
+            logToFile("⚠️ Ignoring start request; already recording or processing")
+            return
+        }
+
+        isRecording = true
 
         await MainActor.run {
             statusBarController?.state = .recording
@@ -116,6 +152,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             logToFile("🎤 Recording started")
         } catch {
             logToFile("❌ Failed to start recording: \(error)")
+            isRecording = false
             await MainActor.run {
                 statusBarController?.state = .idle
                 recordingPillController?.hide()
@@ -131,6 +168,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
+        guard isRecording else {
+            logToFile("⚠️ Ignoring stop request; not currently recording")
+            return
+        }
+
+        isRecording = false
+        isProcessing = true
+
         await MainActor.run {
             statusBarController?.state = .processing
             recordingPillController?.transitionToProcessing()
@@ -142,6 +187,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         guard !recording.samples.isEmpty else {
             logToFile("❌ No audio recorded (0 samples)")
+            isProcessing = false
             await MainActor.run {
                 statusBarController?.state = .idle
                 recordingPillController?.hide()
@@ -209,6 +255,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             statusBarController?.state = .idle
             recordingPillController?.hide()
         }
+
+        isProcessing = false
     }
 
     func applicationWillTerminate(_ notification: Notification) {

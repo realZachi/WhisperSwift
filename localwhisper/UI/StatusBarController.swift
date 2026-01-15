@@ -32,6 +32,7 @@ class StatusBarController {
         setupMenu()
         observeDefaults()
         updateApiMenuItem()
+        updateHotkeyMenuItem()
     }
 
     private func setupButton() {
@@ -60,6 +61,7 @@ class StatusBarController {
         // Hotkey info
         let hotkeyInfo = NSMenuItem(title: "Hold Fn to record", action: nil, keyEquivalent: "")
         hotkeyInfo.isEnabled = false
+        hotkeyInfo.tag = 102
         menu.addItem(hotkeyInfo)
 
         menu.addItem(NSMenuItem.separator())
@@ -112,6 +114,7 @@ class StatusBarController {
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.updateApiMenuItem()
+                self?.updateHotkeyMenuItem()
             }
             .store(in: &cancellables)
     }
@@ -126,6 +129,30 @@ class StatusBarController {
         if let menu = statusItem.menu,
            let apiMenuItem = menu.item(withTag: 101) {
             apiMenuItem.title = text
+        }
+    }
+
+    private func updateHotkeyMenuItem() {
+        let hotkey = UserDefaults.standard.string(forKey: "selectedHotkey") ?? "fn"
+        let handsFree = UserDefaults.standard.bool(forKey: "handsFreeMode")
+        let keyName: String
+
+        switch hotkey {
+        case "option":
+            keyName = "Option"
+        case "control":
+            keyName = "Control"
+        default:
+            keyName = "Fn"
+        }
+
+        let title = handsFree
+            ? "Press \(keyName) to start/stop recording"
+            : "Hold \(keyName) to record"
+
+        if let menu = statusItem.menu,
+           let hotkeyMenuItem = menu.item(withTag: 102) {
+            hotkeyMenuItem.title = title
         }
     }
 

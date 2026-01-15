@@ -35,6 +35,7 @@ struct GeneralSettingsView: View {
     @AppStorage("groqApiKey") private var groqApiKey = ""
     @AppStorage("groqModel") private var groqModel = "whisper-large-v3-turbo"
     @AppStorage("groqLanguage") private var groqLanguage = "de"
+    @AppStorage("handsFreeMode") private var handsFreeMode = false
 
     var body: some View {
         Form {
@@ -46,7 +47,11 @@ struct GeneralSettingsView: View {
                 }
                 .pickerStyle(.menu)
 
-                Text("Hold the key to record, release to transcribe")
+                Toggle("Hands-Free Mode", isOn: $handsFreeMode)
+
+                Text(handsFreeMode
+                     ? "Press the key once to start, press again to stop."
+                     : "Hold the key to record, release to transcribe.")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }

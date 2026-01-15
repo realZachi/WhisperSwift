@@ -16,6 +16,11 @@ class TextInsertionService {
     }
 
     private let accessibilityInsertPromptKey = "didPromptAccessibilityInsert"
+    private let accessibilityInsertBlacklist: Set<String> = [
+        "com.microsoft.VSCode",
+        "com.microsoft.VSCodeInsiders",
+        "com.vscodium"
+    ]
 
     /// Insert text into the currently focused text field using Accessibility or clipboard.
     @discardableResult
@@ -30,7 +35,10 @@ class TextInsertionService {
             return .copiedToClipboard
         }
 
-        if insertTextViaAccessibility(trimmed) {
+        let frontmostBundleId = frontmostBundleIdentifier()
+        if let bundleId = frontmostBundleId, accessibilityInsertBlacklist.contains(bundleId) {
+            logToFile("⚠️ Skipping Accessibility insert for bundle id: \(bundleId)")
+        } else if insertTextViaAccessibility(trimmed) {
             return .inserted
         }
 
@@ -101,6 +109,10 @@ class TextInsertionService {
         DispatchQueue.main.async {
             _ = PermissionManager.shared.requestAccessibilityAccess()
         }
+    }
+
+    private func frontmostBundleIdentifier() -> String? {
+        NSWorkspace.shared.frontmostApplication?.bundleIdentifier
     }
 
     /// Alternative: Insert text character by character (slower but more reliable in some apps)

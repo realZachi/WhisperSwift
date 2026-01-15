@@ -29,6 +29,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var audioRecorder: AudioRecorder?
     private var textInsertionService: TextInsertionService?
     private var recordingPillController: RecordingPillController?
+    private var contextService: ContextService?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         logToFile("🚀 App started")
@@ -59,6 +60,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Initialize text insertion service
         logToFile("📝 Creating TextInsertionService...")
         textInsertionService = TextInsertionService()
+
+        // Initialize context service
+        logToFile("🧠 Creating ContextService...")
+        contextService = ContextService()
 
         // Initialize recording pill overlay
         logToFile("💊 Creating RecordingPillController...")
@@ -156,8 +161,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
                 // Insert text into focused application
                 await MainActor.run {
+                    let snapshot = contextService?.captureSnapshot()
+                    if let snapshot {
+                        logToFile("🧠 Context app=\(snapshot.appName ?? "unknown") title=\(snapshot.windowTitle ?? "none") doc=\(snapshot.documentName ?? "none")")
+                    }
+
+                    let contextualized = contextService?.applyContext(to: transcription, snapshot: snapshot) ?? transcription
+                    if contextualized != transcription {
+                        logToFile("🧠 Contextualized transcription: \(contextualized)")
+                    }
+
                     logToFile("📝 Inserting text...")
-                    let outcome = textInsertionService.insertText(transcription)
+                    let outcome = textInsertionService.insertText(contextualized)
                     switch outcome {
                     case .inserted:
                         logToFile("✅ Text inserted")

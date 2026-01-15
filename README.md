@@ -66,8 +66,8 @@ A native macOS menu bar application for lightning-fast speech-to-text transcript
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/whisperswift.git
-cd whisperswift
+git clone https://github.com/realZachi/WhisperSwift.git
+cd WhisperSwift
 
 # Open in Xcode
 open whisperswift.xcodeproj
@@ -77,7 +77,7 @@ xcodebuild -project whisperswift.xcodeproj -scheme whisperswift -configuration R
 ```
 
 ### Option 2: Download Release
-Download the latest `.app` from the [Releases](https://github.com/yourusername/whisperswift/releases) page.
+Download the latest `.dmg` from the [Releases](https://github.com/realZachi/WhisperSwift/releases) page.
 
 ## Setup
 

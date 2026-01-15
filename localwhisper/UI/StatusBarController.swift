@@ -33,13 +33,11 @@ class StatusBarController {
         observeDefaults()
         updateApiMenuItem()
         updateHotkeyMenuItem()
+        updateIcon()
     }
 
     private func setupButton() {
-        if let button = statusItem.button {
-            button.image = NSImage(systemSymbolName: "waveform", accessibilityDescription: "LocalWhisper")
-            button.image?.isTemplate = true
-        }
+        updateIcon()
     }
 
     private func setupMenu() {
@@ -98,14 +96,27 @@ class StatusBarController {
         }
 
         if let button = statusItem.button {
-            button.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)
-            button.image?.isTemplate = true
+            let image = customStatusBarImage(for: state) ??
+                NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)
+            image?.isTemplate = true
+            button.image = image
         }
 
         // Update status menu item
         if let menu = statusItem.menu,
            let statusMenuItem = menu.item(withTag: 100) {
             statusMenuItem.title = statusText
+        }
+    }
+
+    private func customStatusBarImage(for state: RecordingState) -> NSImage? {
+        switch state {
+        case .idle:
+            return NSImage(named: "StatusBarIcon")
+        case .recording:
+            return NSImage(named: "StatusBarIconRecording") ?? NSImage(named: "StatusBarIcon")
+        case .processing:
+            return NSImage(named: "StatusBarIconProcessing") ?? NSImage(named: "StatusBarIcon")
         }
     }
 

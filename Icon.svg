@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="currentColor" aria-label="Speech to Text Icon">
+  <!-- 
+    Design: A stylized symmetrical waveform forming a subtle 'T' shape.
+    The top arch suggests a speech bubble, the vertical structure suggests text alignment.
+    Using bold, rounded vertical strokes for clarity at small sizes.
+  -->
+  
+  <!-- Outer Bar Left -->
+  <rect x="5" y="26" width="14" height="24" rx="7" />
+  
+  <!-- Mid Bar Left -->
+  <rect x="25" y="18" width="14" height="48" rx="7" />
+  
+  <!-- Center Bar (The Stem/Core) -->
+  <rect x="45" y="12" width="14" height="76" rx="7" />
+  
+  <!-- Mid Bar Right -->
+  <rect x="65" y="18" width="14" height="48" rx="7" />
+  
+  <!-- Outer Bar Right -->
+  <rect x="85" y="26" width="14" height="24" rx="7" />
+
+</svg>

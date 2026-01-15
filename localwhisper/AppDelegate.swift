@@ -24,8 +24,8 @@ nonisolated func logToFile(_ message: String) {
 @MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
     private enum RecordingGestureConstants {
-        static let tapMaxDuration: TimeInterval = 0.20
-        static let doubleTapInterval: TimeInterval = 0.35
+        static let tapMaxDuration: TimeInterval = 0.35
+        static let doubleTapInterval: TimeInterval = 0.50
     }
 
     private var statusBarController: StatusBarController?
@@ -125,11 +125,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         pendingStopWorkItem?.cancel()
         pendingStopWorkItem = nil
 
+        keyDownTimestamp = Date.timeIntervalSinceReferenceDate
+
         if !isRecording {
             await startRecording()
         }
-
-        keyDownTimestamp = Date.timeIntervalSinceReferenceDate
     }
 
     private func handleHotkeyUp() async {

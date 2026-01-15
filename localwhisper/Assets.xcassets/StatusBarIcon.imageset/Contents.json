@@ -1,0 +1,23 @@
+{
+  "images" : [
+    {
+      "filename" : "StatusBarIcon_18.png",
+      "idiom" : "mac",
+      "scale" : "1x",
+      "size" : "18x18"
+    },
+    {
+      "filename" : "StatusBarIcon_36.png",
+      "idiom" : "mac",
+      "scale" : "2x",
+      "size" : "18x18"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  },
+  "properties" : {
+    "template-rendering-intent" : "template"
+  }
+}

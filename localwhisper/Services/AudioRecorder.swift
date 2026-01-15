@@ -14,18 +14,30 @@ struct AudioRecording {
 }
 
 actor AudioRecorder {
+    private enum Constants {
+        static let targetSampleRate: Double = 16000
+        static let inputTapBufferSize: AVAudioFrameCount = 4096
+        static let rmsScaleFactor: Float = 5
+        static let minNormalizationAmplitude: Float = 0.001
+        static let normalizationTargetMax: Float = 0.9
+        static let silenceFrameDurationSeconds: Double = 0.02
+        static let silencePaddingSeconds: Double = 0.20
+        static let minSilenceRms: Float = 0.01
+        static let speechThresholdFactor: Float = 0.10
+    }
+
     private var audioEngine: AVAudioEngine?
     private var audioBuffer: [Float] = []
     private var isRecording = false
 
     // Use 16kHz mono for efficient speech transcription uploads
-    private let targetSampleRate: Double = 16000
+    private let targetSampleRate = Constants.targetSampleRate
 
     // Callback for audio level updates (for waveform visualization)
     private var levelCallback: ((Float) -> Void)?
 
     func setLevelCallback(_ callback: @escaping (Float) -> Void) {
-        self.levelCallback = callback
+        levelCallback = callback
     }
 
     func startRecording() async throws {
@@ -58,7 +70,7 @@ actor AudioRecorder {
         isRecording = true
 
         // Install tap on input node
-        inputNode.installTap(onBus: 0, bufferSize: 4096, format: inputFormat) { [weak self] buffer, _ in
+        inputNode.installTap(onBus: 0, bufferSize: Constants.inputTapBufferSize, format: inputFormat) { [weak self] buffer, _ in
             Task {
                 await self?.processAudioBuffer(buffer, converter: converter, targetFormat: targetFormat)
             }
@@ -103,7 +115,7 @@ actor AudioRecorder {
                 var rms: Float = 0
                 vDSP_rmsqv(channelData, 1, &rms, vDSP_Length(frameCount))
                 // Scale RMS to 0-1 range (typical speech RMS is 0.01-0.3)
-                let scaledLevel = min(rms * 5, 1.0)
+                let scaledLevel = min(rms * Constants.rmsScaleFactor, 1.0)
                 DispatchQueue.main.async {
                     callback(scaledLevel)
                 }
@@ -152,13 +164,13 @@ actor AudioRecorder {
         logToFile("🎤 Max amplitude before normalization: \(maxAmplitude)")
 
         // If audio is very quiet or silent, return as is
-        guard maxAmplitude > 0.001 else {
+        guard maxAmplitude > Constants.minNormalizationAmplitude else {
             logToFile("🎤 Audio too quiet (< 0.001), returning as is")
             return samples
         }
 
         // Normalize to 0.9 max amplitude
-        let targetMax: Float = 0.9
+        let targetMax = Constants.normalizationTargetMax
         let scale = targetMax / maxAmplitude
 
         var normalizedSamples = [Float](repeating: 0, count: samples.count)
@@ -173,9 +185,9 @@ actor AudioRecorder {
         guard !samples.isEmpty else { return samples }
 
         let sampleRate = Int(targetSampleRate)
-        let frameLength = max(1, Int(Double(sampleRate) * 0.02)) // 20ms
+        let frameLength = max(1, Int(Double(sampleRate) * Constants.silenceFrameDurationSeconds)) // 20ms
         let hopLength = frameLength
-        let paddingSamples = Int(Double(sampleRate) * 0.20) // 200ms
+        let paddingSamples = Int(Double(sampleRate) * Constants.silencePaddingSeconds) // 200ms
 
         if samples.count < frameLength {
             return samples
@@ -200,12 +212,12 @@ actor AudioRecorder {
         guard !rmsValues.isEmpty else { return samples }
 
         // If overall energy is extremely low, treat as silence and skip transcription.
-        if maxRms < 0.01 {
+        if maxRms < Constants.minSilenceRms {
             logToFile("🎤 Detected mostly silent audio (max RMS: \(maxRms)); skipping transcription")
             return []
         }
 
-        let threshold = max(0.01, maxRms * 0.10)
+        let threshold = max(Constants.minSilenceRms, maxRms * Constants.speechThresholdFactor)
 
         var firstFrameIndex: Int?
         var lastFrameIndex: Int?

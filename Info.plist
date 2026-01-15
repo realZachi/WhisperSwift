@@ -4,7 +4,7 @@
 <dict>
     <!-- Bundle identifier - required for permissions -->
     <key>CFBundleIdentifier</key>
-    <string>com.localwhisper.app</string>
+    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 
     <key>CFBundleName</key>
     <string>LocalWhisper</string>

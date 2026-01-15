@@ -8,8 +8,8 @@
 import Foundation
 
 actor GroqTranscriptionService {
-    private let endpoint = URL(string: "https://api.groq.com/openai/v1/audio/transcriptions")!
-    private let cleanupEndpoint = URL(string: "https://api.groq.com/openai/v1/chat/completions")!
+    private let endpoint: URL
+    private let cleanupEndpoint: URL
     private let apiKeyDefaultsKey = "groqApiKey"
     private let modelDefaultsKey = "groqModel"
     private let languageDefaultsKey = "groqLanguage"
@@ -53,6 +53,15 @@ Return only the cleaned transcript. No commentary, no explanations, no quotation
 
     private let cleanupExampleUser = "In meiner context-service -swift datei gibt es ein problem, fix das und korrigiere danach die ach ne sorry korrigiere zuerst die readme und fix das dann."
     private let cleanupExampleAssistant = "In meiner context-service-swift datei gibt es ein problem, fix das und korrigiere danach die readme."
+
+    init() {
+        guard let endpoint = URL(string: "https://api.groq.com/openai/v1/audio/transcriptions"),
+              let cleanupEndpoint = URL(string: "https://api.groq.com/openai/v1/chat/completions") else {
+            preconditionFailure("Invalid Groq API endpoint URL.")
+        }
+        self.endpoint = endpoint
+        self.cleanupEndpoint = cleanupEndpoint
+    }
 
     func transcribe(recording: AudioRecording) async throws -> String {
         guard let apiKey = resolveApiKey(), !apiKey.isEmpty else {
@@ -108,7 +117,7 @@ Return only the cleaned transcript. No commentary, no explanations, no quotation
         let decoded = try await MainActor.run {
             try JSONDecoder().decode(GroqTranscriptionResponse.self, from: data)
         }
-        let cleaned = cleanTranscription(decoded.text)
+        let cleaned = cleanTranscriptionArtifacts(decoded.text)
         await MainActor.run {
             logToFile("✅ Groq transcription received")
         }
@@ -142,7 +151,10 @@ Return only the cleaned transcript. No commentary, no explanations, no quotation
             stop: nil
         )
 
-        request.httpBody = try JSONEncoder().encode(payload)
+        let body = try await MainActor.run {
+            try JSONEncoder().encode(payload)
+        }
+        request.httpBody = body
 
         await MainActor.run {
             logToFile("🌐 Sending transcript to Groq cleanup (model: \(cleanupModel))")
@@ -158,7 +170,9 @@ Return only the cleaned transcript. No commentary, no explanations, no quotation
             throw GroqTranscriptionError.requestFailed(statusCode: httpResponse.statusCode, body: body)
         }
 
-        let decoded = try JSONDecoder().decode(GroqChatCompletionResponse.self, from: data)
+        let decoded = try await MainActor.run {
+            try JSONDecoder().decode(GroqChatCompletionResponse.self, from: data)
+        }
         guard let content = decoded.choices.first?.message.content else {
             throw GroqTranscriptionError.invalidResponse
         }
@@ -250,7 +264,7 @@ Return only the cleaned transcript. No commentary, no explanations, no quotation
         return data
     }
 
-    private func cleanTranscription(_ text: String) -> String {
+    private func cleanTranscriptionArtifacts(_ text: String) -> String {
         var cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let artifacts = ["[BLANK_AUDIO]", "(blank audio)", "[MUSIC]", "[SILENCE]"]
         for artifact in artifacts {

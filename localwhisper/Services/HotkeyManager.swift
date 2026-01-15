@@ -16,7 +16,7 @@ class HotkeyManager {
     var onKeyDown: (() -> Void)?
     var onKeyUp: (() -> Void)?
 
-    // Selected hotkey from UserDefaults - default to "option" for better compatibility
+    // Selected hotkey from UserDefaults - default to "fn" for menu bar behavior
     private var selectedHotkey: String {
         UserDefaults.standard.string(forKey: "selectedHotkey") ?? "fn"
     }
@@ -105,12 +105,6 @@ class HotkeyManager {
     /// Check if accessibility permissions are granted (required for global monitoring)
     static func checkAccessibilityPermission() -> Bool {
         AXIsProcessTrusted()
-    }
-
-    /// Request accessibility permission with prompt
-    static func requestAccessibilityPermission() -> Bool {
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-        return AXIsProcessTrustedWithOptions(options)
     }
 }
 

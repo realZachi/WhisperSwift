@@ -6,20 +6,19 @@
 //
 
 import Cocoa
-import SwiftUI
 
-func logToFile(_ message: String) {
+nonisolated func logToFile(_ message: String) {
     let logFile = "/tmp/localwhisper.log"
     let timestamp = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium)
     let logMessage = "[\(timestamp)] \(message)\n"
+    guard let data = logMessage.data(using: .utf8) else { return }
     if let handle = FileHandle(forWritingAtPath: logFile) {
         handle.seekToEndOfFile()
-        handle.write(logMessage.data(using: .utf8)!)
+        handle.write(data)
         handle.closeFile()
     } else {
-        FileManager.default.createFile(atPath: logFile, contents: logMessage.data(using: .utf8), attributes: nil)
+        FileManager.default.createFile(atPath: logFile, contents: data, attributes: nil)
     }
-    print(message) // Also print to stdout
 }
 
 class AppDelegate: NSObject, NSApplicationDelegate {

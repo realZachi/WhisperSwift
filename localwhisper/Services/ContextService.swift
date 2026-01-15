@@ -8,10 +8,16 @@
 import Cocoa
 
 final class ContextService {
+    private enum Constants {
+        static let maxFilenameBodyLength = 200
+        static let maxExtensionLength = 12
+        static let minBaseTokenLength = 3
+        static let minUppercaseLetterSequenceLength = 4
+        static let minExtensionLetterSequenceLength = 2
+    }
+
     private struct FilenameSignature {
-        let filename: String
         let baseTokenSequences: [[String]]
-        let fileExtension: String
         let extensionAlternatives: [String]
     }
 
@@ -21,7 +27,6 @@ final class ContextService {
         let windowTitle: String?
         let documentPath: String?
         let documentName: String?
-        let capturedAt: Date
     }
 
     func captureSnapshot() -> Snapshot? {
@@ -41,8 +46,7 @@ final class ContextService {
             bundleId: bundleId,
             windowTitle: windowTitle,
             documentPath: documentPath,
-            documentName: documentName,
-            capturedAt: Date()
+            documentName: documentName
         )
     }
 
@@ -73,18 +77,20 @@ final class ContextService {
         let systemWide = AXUIElementCreateSystemWide()
         var focusedApp: CFTypeRef?
         guard AXUIElementCopyAttributeValue(systemWide, kAXFocusedApplicationAttribute as CFString, &focusedApp) == .success,
-              let appElement = focusedApp else {
+              let focusedApp,
+              CFGetTypeID(focusedApp) == AXUIElementGetTypeID() else {
             return nil
         }
+        let appElement = unsafeBitCast(focusedApp, to: AXUIElement.self)
 
         var focusedWindow: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(appElement as! AXUIElement, kAXFocusedWindowAttribute as CFString, &focusedWindow) == .success,
-              let windowElement = focusedWindow else {
+        guard AXUIElementCopyAttributeValue(appElement, kAXFocusedWindowAttribute as CFString, &focusedWindow) == .success,
+              let focusedWindow,
+              CFGetTypeID(focusedWindow) == AXUIElementGetTypeID() else {
             return nil
         }
 
-        let axWindow = windowElement as! AXUIElement
-        return axWindow
+        return unsafeBitCast(focusedWindow, to: AXUIElement.self)
     }
 
     private func copyAttributeString(_ element: AXUIElement, _ attribute: String) -> String? {
@@ -139,7 +145,7 @@ final class ContextService {
     }
 
     private func extractFilenameLikeSubstrings(from text: String) -> [String] {
-        let pattern = "(?<![\\p{L}\\p{N}_])[\\p{L}\\p{N}][\\p{L}\\p{N}._+\\-]{0,200}\\.[\\p{L}\\p{N}]{1,12}(?![\\p{L}\\p{N}_])"
+        let pattern = "(?<![\\p{L}\\p{N}_])[\\p{L}\\p{N}][\\p{L}\\p{N}._+\\-]{0,\(Constants.maxFilenameBodyLength)}\\.[\\p{L}\\p{N}]{1,\(Constants.maxExtensionLength)}(?![\\p{L}\\p{N}_])"
         guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
             return []
         }
@@ -173,7 +179,7 @@ final class ContextService {
             return false
         }
 
-        if ext.contains(" ") || ext.count > 12 {
+        if ext.contains(" ") || ext.count > Constants.maxExtensionLength {
             return false
         }
 
@@ -300,14 +306,14 @@ final class ContextService {
             return nil
         }
 
-        if baseTokens.count == 1, baseTokens[0].count < 3 {
+        if baseTokens.count == 1, baseTokens[0].count < Constants.minBaseTokenLength {
             return nil
         }
 
         var baseTokenSequences: [[String]] = [baseTokens]
         if shouldAddLetterSequenceVariant(for: base) {
             let letters = base.lowercased().map { String($0) }
-            if letters.count >= 4 {
+            if letters.count >= Constants.minUppercaseLetterSequenceLength {
                 baseTokenSequences.append(letters)
             }
         }
@@ -322,7 +328,7 @@ final class ContextService {
 
         if normalizedExt.count <= 3, normalizedExt.unicodeScalars.allSatisfy({ CharacterSet.letters.contains($0) }) {
             let letters = normalizedExt.map { String($0) }
-            if letters.count >= 2 {
+            if letters.count >= Constants.minExtensionLetterSequenceLength {
                 extensionAlternatives.append(letters.joined(separator: " "))
             }
         }
@@ -330,9 +336,7 @@ final class ContextService {
         extensionAlternatives = Array(Set(extensionAlternatives)).sorted()
 
         return FilenameSignature(
-            filename: sanitized,
             baseTokenSequences: baseTokenSequences,
-            fileExtension: normalizedExt,
             extensionAlternatives: extensionAlternatives
         )
     }

@@ -114,9 +114,7 @@ struct PermissionsView: View {
     }
 
     private func openMicrophoneSettings() {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
-            NSWorkspace.shared.open(url)
-        }
+        PermissionManager.shared.openMicrophoneSettings()
     }
 
     private func openAccessibilitySettings() {

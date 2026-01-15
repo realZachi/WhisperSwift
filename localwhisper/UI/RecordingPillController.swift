@@ -44,7 +44,7 @@ class RecordingPillController {
         panel.ignoresMouseEvents = true
         panel.contentView = hostingView
 
-        self.pillPanel = panel
+        pillPanel = panel
     }
 
     func show() {

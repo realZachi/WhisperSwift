@@ -15,6 +15,11 @@ class TextInsertionService {
         case empty
     }
 
+    private enum Constants {
+        static let pasteboardSettleDelay: TimeInterval = 0.05
+        static let pasteboardRestoreDelay: TimeInterval = 0.1
+    }
+
     private let accessibilityInsertPromptKey = "didPromptAccessibilityInsert"
     private let accessibilityInsertBlacklist: Set<String> = [
         // Code editors (handle text insertion differently)
@@ -75,13 +80,13 @@ class TextInsertionService {
         pasteboard.setString(text, forType: .string)
 
         // Small delay to ensure pasteboard is updated
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + Constants.pasteboardSettleDelay) { [weak self] in
             // Simulate Cmd+V paste
             logToFile("⌨️ Simulating Cmd+V")
             self?.simulatePaste()
 
             // Restore previous clipboard content after paste completes
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Constants.pasteboardRestoreDelay) {
                 if let previous = previousContents {
                     pasteboard.clearContents()
                     pasteboard.setString(previous, forType: .string)
@@ -108,14 +113,14 @@ class TextInsertionService {
 
         // Create key down event with Command modifier
         guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: vKeyCode, keyDown: true) else {
-            print("Failed to create key down event")
+            logToFile("❌ Failed to create key down event")
             return
         }
         keyDown.flags = .maskCommand
 
         // Create key up event
         guard let keyUp = CGEvent(keyboardEventSource: source, virtualKey: vKeyCode, keyDown: false) else {
-            print("Failed to create key up event")
+            logToFile("❌ Failed to create key up event")
             return
         }
         keyUp.flags = .maskCommand
@@ -137,25 +142,6 @@ class TextInsertionService {
         NSWorkspace.shared.frontmostApplication?.bundleIdentifier
     }
 
-    /// Alternative: Insert text character by character (slower but more reliable in some apps)
-    func insertTextCharByChar(_ text: String) {
-        let source = CGEventSource(stateID: .hidSystemState)
-
-        for char in text {
-            guard let event = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true) else { continue }
-
-            var chars = [UniChar](String(char).utf16)
-            event.keyboardSetUnicodeString(stringLength: chars.count, unicodeString: &chars)
-            event.post(tap: .cghidEventTap)
-
-            // Key up
-            guard let upEvent = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false) else { continue }
-            upEvent.post(tap: .cghidEventTap)
-
-            // Small delay between characters
-            usleep(1000) // 1ms
-        }
-    }
 }
 
 // MARK: - Accessibility-based Text Insertion (Alternative Method)
@@ -164,7 +150,7 @@ extension TextInsertionService {
 
     /// Try to insert text using Accessibility API directly
     /// This can work even when Cmd+V doesn't (e.g., in some terminal apps)
-    func insertTextViaAccessibility(_ text: String) -> Bool {
+    private func insertTextViaAccessibility(_ text: String) -> Bool {
         guard let focusedElement = getFocusedElement() else {
             logToFile("⚠️ Accessibility: No focused element found")
             return false
@@ -189,7 +175,12 @@ extension TextInsertionService {
            let rangeValue = getAttributeValue(focusedElement, attribute: kAXSelectedTextRangeAttribute as String) {
 
             var range = CFRange()
-            if AXValueGetValue(rangeValue as! AXValue, .cfRange, &range) {
+            guard CFGetTypeID(rangeValue) == AXValueGetTypeID() else {
+                logToFile("⚠️ Accessibility: selected range value is not AXValue")
+                return false
+            }
+            let axRangeValue = unsafeBitCast(rangeValue, to: AXValue.self)
+            if AXValueGetValue(axRangeValue, .cfRange, &range) {
                 // Build new string with text inserted at cursor position
                 let startIndex = currentValue.index(currentValue.startIndex, offsetBy: min(range.location, currentValue.count))
                 let endIndex = currentValue.index(startIndex, offsetBy: min(range.length, currentValue.count - range.location))
@@ -222,16 +213,20 @@ extension TextInsertionService {
 
         var focusedApp: CFTypeRef?
         guard AXUIElementCopyAttributeValue(systemWide, kAXFocusedApplicationAttribute as CFString, &focusedApp) == .success,
-              let appElement = focusedApp else {
+              let focusedApp,
+              CFGetTypeID(focusedApp) == AXUIElementGetTypeID() else {
             return nil
         }
+        let appElement = unsafeBitCast(focusedApp, to: AXUIElement.self)
 
         var focusedElement: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(appElement as! AXUIElement, kAXFocusedUIElementAttribute as CFString, &focusedElement) == .success else {
+        guard AXUIElementCopyAttributeValue(appElement, kAXFocusedUIElementAttribute as CFString, &focusedElement) == .success,
+              let focusedElement,
+              CFGetTypeID(focusedElement) == AXUIElementGetTypeID() else {
             return nil
         }
 
-        return focusedElement as! AXUIElement?
+        return unsafeBitCast(focusedElement, to: AXUIElement.self)
     }
 
     private func getAttributeValue(_ element: AXUIElement, attribute: String) -> CFTypeRef? {

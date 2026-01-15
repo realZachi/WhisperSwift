@@ -114,6 +114,11 @@ xcrun notarytool submit "$DMG_FINAL" --keychain-profile "<profile-name>" --wait
 xcrun stapler staple "$DMG_FINAL"
 ```
 
+### Notarization Notes
+- `notarytool` only accepts `.zip`, `.pkg`, or `.dmg`. To notarize the `.app`, zip it first:
+  - `ditto -c -k --sequesterRsrc --keepParent WhisperSwift.app build/WhisperSwift.app.zip`
+- After acceptance, always `stapler staple` the `.app` and the `.dmg` so Gatekeeper works offline.
+
 ## Architecture
 
 The app follows a service-oriented architecture:

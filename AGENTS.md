@@ -51,6 +51,20 @@ hdiutil convert "$DMG_RW" -format UDZO -o "$DMG_FINAL"
 rm -f "$DMG_RW"
 ```
 
+### Notarization (App + DMG)
+If macOS warns that malware checks couldn’t run, notarize the app and the DMG:
+
+```bash
+# Notarize app (must be .zip)
+ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "build/${APP_NAME}.app.zip"
+xcrun notarytool submit "build/${APP_NAME}.app.zip" --keychain-profile "<profile-name>" --wait
+xcrun stapler staple "$APP_PATH"
+
+# Notarize DMG
+xcrun notarytool submit "$DMG_FINAL" --keychain-profile "<profile-name>" --wait
+xcrun stapler staple "$DMG_FINAL"
+```
+
 ## Coding Style & Naming Conventions
 - Swift style: 4-space indentation; types in `UpperCamelCase`, methods/vars in `lowerCamelCase`.
 - Keep UI in `whisperswift/UI/` and service logic in `whisperswift/Services/`.

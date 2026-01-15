@@ -27,10 +27,10 @@ class RecordingPillController {
             audioMonitor: audioMonitor,
             stateManager: stateManager
         ))
-        hostingView.frame = NSRect(x: 0, y: 0, width: 70, height: 60)
+        hostingView.frame = NSRect(x: 0, y: 0, width: 140, height: 140)
 
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 70, height: 60),
+            contentRect: NSRect(x: 0, y: 0, width: 140, height: 140),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false

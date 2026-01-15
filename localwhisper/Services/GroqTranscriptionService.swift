@@ -51,9 +51,6 @@ Your job is deletion, not editing. If the speaker said "fix das", output "fix da
 Return only the cleaned transcript. No commentary, no explanations, no quotation marks.
 """#
 
-    private let cleanupExampleUser = "In meiner context-service -swift datei gibt es ein problem, fix das und korrigiere danach die ach ne sorry korrigiere zuerst die readme und fix das dann."
-    private let cleanupExampleAssistant = "In meiner context-service-swift datei gibt es ein problem, fix das und korrigiere danach die readme."
-
     init() {
         guard let endpoint = URL(string: "https://api.groq.com/openai/v1/audio/transcriptions"),
               let cleanupEndpoint = URL(string: "https://api.groq.com/openai/v1/chat/completions") else {
@@ -136,8 +133,6 @@ Return only the cleaned transcript. No commentary, no explanations, no quotation
 
         let messages = [
             GroqChatMessage(role: "system", content: cleanupSystemPrompt),
-            GroqChatMessage(role: "user", content: cleanupExampleUser),
-            GroqChatMessage(role: "assistant", content: cleanupExampleAssistant),
             GroqChatMessage(role: "user", content: transcript)
         ]
 

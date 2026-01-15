@@ -164,7 +164,7 @@ class StatusBarController {
         }
     }
 
-    @objc private func openSettings() {
+    @objc func openSettings() {
         if settingsWindow == nil {
             let hostingController = NSHostingController(rootView: SettingsView())
             let window = NSWindow(

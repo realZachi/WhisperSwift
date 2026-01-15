@@ -37,6 +37,17 @@ Rules: ONLY delete — never paraphrase, transform, add words, or correct gramma
         self.cleanupEndpoint = cleanupEndpoint
     }
 
+    /// Returns true if a valid API key is configured (via UserDefaults or environment).
+    nonisolated func hasApiKey() -> Bool {
+        if let key = UserDefaults.standard.string(forKey: apiKeyDefaultsKey), !key.isEmpty {
+            return true
+        }
+        if let envKey = ProcessInfo.processInfo.environment["GROQ_API_KEY"], !envKey.isEmpty {
+            return true
+        }
+        return false
+    }
+
     func transcribe(recording: AudioRecording) async throws -> String {
         guard let apiKey = resolveApiKey(), !apiKey.isEmpty else {
             throw GroqTranscriptionError.missingApiKey

@@ -6,6 +6,7 @@
 //
 
 import Cocoa
+import UserNotifications
 
 nonisolated func logToFile(_ message: String) {
     let logFile = "/tmp/localwhisper.log"
@@ -122,6 +123,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
+        // Check for API key before starting recording
+        if let groqService = groqService, !groqService.hasApiKey() {
+            logToFile("⚠️ API key missing, showing notification")
+            await showApiKeyMissingAlert()
+            return
+        }
+
         pendingStopWorkItem?.cancel()
         pendingStopWorkItem = nil
 
@@ -129,6 +137,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         if !isRecording {
             await startRecording()
+        }
+    }
+
+    private func showApiKeyMissingAlert() async {
+        await MainActor.run {
+            let alert = NSAlert()
+            alert.messageText = "API Key Missing"
+            alert.informativeText = "Please enter your Groq API key in Settings to use speech recognition."
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "Open Settings")
+            alert.addButton(withTitle: "Cancel")
+
+            NSApp.activate(ignoringOtherApps: true)
+            let response = alert.runModal()
+
+            if response == .alertFirstButtonReturn {
+                statusBarController?.openSettings()
+            }
         }
     }
 

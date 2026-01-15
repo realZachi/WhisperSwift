@@ -164,6 +164,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     let snapshot = contextService?.captureSnapshot()
                     if let snapshot {
                         logToFile("🧠 Context app=\(snapshot.appName ?? "unknown") title=\(snapshot.windowTitle ?? "none") doc=\(snapshot.documentName ?? "none")")
+                        let candidates = contextService?.candidateFilenames(snapshot: snapshot) ?? []
+                        if !candidates.isEmpty {
+                            logToFile("🧠 Context candidates: \(candidates.joined(separator: ", "))")
+                        }
                     }
 
                     let contextualized = contextService?.applyContext(to: transcription, snapshot: snapshot) ?? transcription

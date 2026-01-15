@@ -8,6 +8,13 @@
 import Cocoa
 
 final class ContextService {
+    private struct FilenameSignature {
+        let filename: String
+        let baseTokenSequences: [[String]]
+        let fileExtension: String
+        let extensionAlternatives: [String]
+    }
+
     struct Snapshot {
         let appName: String?
         let bundleId: String?
@@ -44,20 +51,22 @@ final class ContextService {
             return text
         }
 
-        let candidates = extractFileCandidates(snapshot: snapshot)
+        let candidates = candidateFilenames(snapshot: snapshot)
         guard !candidates.isEmpty else {
             return text
         }
 
         var updated = text
         for candidate in candidates {
-            let variants = filenameVariants(for: candidate)
-            for variant in variants {
-                updated = replacePhrase(in: updated, phrase: variant, replacement: candidate)
-            }
+            updated = replaceFileMentions(in: updated, with: candidate)
         }
 
         return updated
+    }
+
+    func candidateFilenames(snapshot: Snapshot) -> [String] {
+        extractFileCandidates(snapshot: snapshot)
+            .sorted { $0.count > $1.count }
     }
 
     private func focusedWindowElement() -> AXUIElement? {
@@ -74,7 +83,8 @@ final class ContextService {
             return nil
         }
 
-        return windowElement as! AXUIElement
+        let axWindow = windowElement as! AXUIElement
+        return axWindow
     }
 
     private func copyAttributeString(_ element: AXUIElement, _ attribute: String) -> String? {
@@ -90,14 +100,18 @@ final class ContextService {
     private func extractFileCandidates(snapshot: Snapshot) -> [String] {
         var candidates: [String] = []
 
-        if let documentName = snapshot.documentName, looksLikeFilename(documentName) {
-            candidates.append(documentName)
+        if let documentName = snapshot.documentName {
+            let sanitized = sanitizeCandidate(documentName)
+            if looksLikeFilename(sanitized) {
+                candidates.append(sanitized)
+            }
         }
 
         if let documentPath = snapshot.documentPath {
             let lastComponent = (documentPath as NSString).lastPathComponent
-            if looksLikeFilename(lastComponent) {
-                candidates.append(lastComponent)
+            let sanitized = sanitizeCandidate(lastComponent)
+            if looksLikeFilename(sanitized) {
+                candidates.append(sanitized)
             }
         }
 
@@ -109,40 +123,42 @@ final class ContextService {
     }
 
     private func candidatesFromWindowTitle(_ title: String) -> [String] {
-        let separators = [
-            " - ",
-            " | ",
-            " :: ",
-            " \(String(UnicodeScalar(0x2014)!)) ",
-            " \(String(UnicodeScalar(0x2013)!)) ",
-            " \(String(UnicodeScalar(0x2022)!)) "
-        ]
-
-        var segments = [title]
-        for separator in separators {
-            segments = segments.flatMap { $0.components(separatedBy: separator) }
-        }
-
         var candidates: [String] = []
-        for segment in segments {
-            let trimmed = segment.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty else { continue }
-            if trimmed.contains("://") { continue }
 
-            if trimmed.contains("/") || trimmed.contains("~") {
-                let lastComponent = (trimmed as NSString).lastPathComponent
-                if looksLikeFilename(lastComponent) {
-                    candidates.append(lastComponent)
-                }
-                continue
-            }
+        candidates.append(contentsOf: extractFilenameLikeSubstrings(from: title))
 
-            if looksLikeFilename(trimmed) {
-                candidates.append(trimmed)
+        if title.contains("/") || title.contains("~") {
+            let lastComponent = (title as NSString).lastPathComponent
+            let sanitized = sanitizeCandidate(lastComponent)
+            if looksLikeFilename(sanitized) {
+                candidates.append(sanitized)
             }
         }
 
         return candidates
+    }
+
+    private func extractFilenameLikeSubstrings(from text: String) -> [String] {
+        let pattern = "(?<![\\p{L}\\p{N}_])[\\p{L}\\p{N}][\\p{L}\\p{N}._+\\-]{0,200}\\.[\\p{L}\\p{N}]{1,12}(?![\\p{L}\\p{N}_])"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
+            return []
+        }
+
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        let matches = regex.matches(in: text, options: [], range: range)
+        var results: [String] = []
+        results.reserveCapacity(matches.count)
+
+        for match in matches {
+            guard let matchRange = Range(match.range, in: text) else { continue }
+            let substring = String(text[matchRange])
+            let sanitized = sanitizeCandidate(substring)
+            if looksLikeFilename(sanitized) {
+                results.append(sanitized)
+            }
+        }
+
+        return results
     }
 
     private func looksLikeFilename(_ value: String) -> Bool {
@@ -157,61 +173,26 @@ final class ContextService {
             return false
         }
 
-        if ext.contains(" ") || ext.count > 6 {
+        if ext.contains(" ") || ext.count > 12 {
             return false
         }
 
-        return true
-    }
-
-    private func filenameVariants(for filename: String) -> [String] {
-        var variants: [String] = []
-        let normalized = normalizeFilenamePhrase(filename)
-        if !normalized.isEmpty {
-            variants.append(normalized)
+        let extString = String(ext)
+        let extScalars = extString.unicodeScalars
+        guard extScalars.allSatisfy({ CharacterSet.alphanumerics.contains($0) }) else {
+            return false
         }
 
-        if let dotIndex = filename.lastIndex(of: ".") {
-            let base = String(filename[..<dotIndex])
-            let ext = String(filename[filename.index(after: dotIndex)...])
-            let basePhrase = normalizeFilenamePhrase(base)
-            let extPhrase = normalizeFilenamePhrase(ext)
-            if !basePhrase.isEmpty && !extPhrase.isEmpty {
-                variants.append("\(basePhrase) dot \(extPhrase)")
-                variants.append("\(basePhrase) punkt \(extPhrase)")
-            }
-        }
-
-        return uniqueVariants(variants)
+        return extScalars.contains { CharacterSet.letters.contains($0) }
     }
 
-    private func normalizeFilenamePhrase(_ value: String) -> String {
-        let lowered = value.lowercased()
-        let replaced = lowered
-            .replacingOccurrences(of: "_", with: " ")
-            .replacingOccurrences(of: "-", with: " ")
-            .replacingOccurrences(of: ".", with: " ")
-        return collapseWhitespace(replaced)
-    }
-
-    private func collapseWhitespace(_ value: String) -> String {
-        let parts = value.split { $0.isWhitespace }
-        return parts.joined(separator: " ")
-    }
-
-    private func replacePhrase(in text: String, phrase: String, replacement: String) -> String {
-        let trimmed = phrase.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.count >= 4 else {
-            return text
-        }
-
-        let escaped = NSRegularExpression.escapedPattern(for: trimmed)
-        let pattern = "(?i)\\b\(escaped)\\b"
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
+    private func replaceFileMentions(in text: String, with filename: String) -> String {
+        guard let regex = spokenFilenameRegex(for: filename) else {
             return text
         }
 
         let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        let replacement = NSRegularExpression.escapedTemplate(for: filename)
         return regex.stringByReplacingMatches(in: text, options: [], range: range, withTemplate: replacement)
     }
 
@@ -219,25 +200,291 @@ final class ContextService {
         var seen = Set<String>()
         var unique: [String] = []
         for candidate in candidates {
-            let trimmed = candidate.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard looksLikeFilename(trimmed) else { continue }
-            if seen.insert(trimmed).inserted {
-                unique.append(trimmed)
+            let sanitized = sanitizeCandidate(candidate)
+            guard looksLikeFilename(sanitized) else { continue }
+            if seen.insert(sanitized).inserted {
+                unique.append(sanitized)
             }
         }
         return unique
     }
 
-    private func uniqueVariants(_ variants: [String]) -> [String] {
-        var seen = Set<String>()
-        var unique: [String] = []
-        for variant in variants {
-            let trimmed = variant.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard trimmed.count >= 4 else { continue }
-            if seen.insert(trimmed).inserted {
-                unique.append(trimmed)
+    private func sanitizeCandidate(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return trimmed
+        }
+
+        let allowedScalars = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-+"))
+        var start = trimmed.startIndex
+        var end = trimmed.endIndex
+
+        while start < end {
+            let character = trimmed[start]
+            let scalars = character.unicodeScalars
+            if scalars.allSatisfy({ allowedScalars.contains($0) }) {
+                break
+            }
+            start = trimmed.index(after: start)
+        }
+
+        while end > start {
+            let previousIndex = trimmed.index(before: end)
+            let character = trimmed[previousIndex]
+            let scalars = character.unicodeScalars
+            if scalars.allSatisfy({ allowedScalars.contains($0) }) {
+                break
+            }
+            end = previousIndex
+        }
+
+        return String(trimmed[start..<end])
+    }
+
+    private func spokenFilenameRegex(for filename: String) -> NSRegularExpression? {
+        guard let signature = filenameSignature(for: filename) else {
+            return nil
+        }
+
+        let wordBoundaryStart = "(?<![\\p{L}\\p{N}_])"
+        let wordBoundaryEnd = "(?![\\p{L}\\p{N}_])"
+        let softSep = "[^\\p{L}\\p{N}]*"
+        let hardSep = "[^\\p{L}\\p{N}]+"
+
+        let fileWord = "(?:datei|file|dokument|document)"
+        let dotWord = "(?:punkt|dot|point)"
+
+        let betweenBaseAndExtension = "(?:\(hardSep)|(?:\(softSep)\(dotWord)\(softSep)))"
+
+        let extensionAlternation = signature.extensionAlternatives
+            .map { extensionPattern(for: $0, softSeparator: softSep) }
+            .joined(separator: "|")
+
+        let extensionGroupPattern = "(?:\(extensionAlternation))"
+
+        let prefixOptional = "(?:(?:\(fileWord))\(hardSep))?"
+        let suffixOptional = "(?:\(hardSep)(?:\(fileWord)))?"
+
+        let prefixRequired = "(?:\(fileWord))\(hardSep)"
+        let suffixRequired = "\(hardSep)(?:\(fileWord))"
+
+        var patterns: [String] = []
+        for baseTokens in signature.baseTokenSequences {
+            let base = sequencePattern(for: baseTokens, softSeparator: softSep)
+
+            let full = "\(prefixOptional)\(base)\(betweenBaseAndExtension)\(extensionGroupPattern)\(suffixOptional)"
+            patterns.append(full)
+
+            let fileWordBeforeBaseOnly = "\(prefixRequired)\(base)"
+            let fileWordAfterBaseOnly = "\(base)\(suffixRequired)"
+            patterns.append(fileWordBeforeBaseOnly)
+            patterns.append(fileWordAfterBaseOnly)
+        }
+
+        let combined = "\(wordBoundaryStart)(?:\(patterns.joined(separator: "|")))\(wordBoundaryEnd)"
+        return try? NSRegularExpression(pattern: combined, options: [.caseInsensitive])
+    }
+
+    private func filenameSignature(for filename: String) -> FilenameSignature? {
+        let sanitized = sanitizeCandidate(filename)
+        guard looksLikeFilename(sanitized) else {
+            return nil
+        }
+
+        let nsFilename = sanitized as NSString
+        let ext = nsFilename.pathExtension
+        let base = nsFilename.deletingPathExtension
+        let baseTokens = tokenizeFileComponent(base)
+
+        guard !baseTokens.isEmpty else {
+            return nil
+        }
+
+        if baseTokens.count == 1, baseTokens[0].count < 3 {
+            return nil
+        }
+
+        var baseTokenSequences: [[String]] = [baseTokens]
+        if shouldAddLetterSequenceVariant(for: base) {
+            let letters = base.lowercased().map { String($0) }
+            if letters.count >= 4 {
+                baseTokenSequences.append(letters)
             }
         }
-        return unique
+
+        let normalizedExt = normalizeToken(ext)
+        guard !normalizedExt.isEmpty else {
+            return nil
+        }
+
+        var extensionAlternatives = [normalizedExt]
+        extensionAlternatives.append(contentsOf: extensionAliasTokens(for: normalizedExt))
+
+        if normalizedExt.count <= 3, normalizedExt.unicodeScalars.allSatisfy({ CharacterSet.letters.contains($0) }) {
+            let letters = normalizedExt.map { String($0) }
+            if letters.count >= 2 {
+                extensionAlternatives.append(letters.joined(separator: " "))
+            }
+        }
+
+        extensionAlternatives = Array(Set(extensionAlternatives)).sorted()
+
+        return FilenameSignature(
+            filename: sanitized,
+            baseTokenSequences: baseTokenSequences,
+            fileExtension: normalizedExt,
+            extensionAlternatives: extensionAlternatives
+        )
+    }
+
+    private func tokenizeFileComponent(_ value: String) -> [String] {
+        let segments = extractAlphanumericSegments(from: value)
+        var tokens: [String] = []
+        for segment in segments {
+            let parts = splitCamelCase(segment)
+            for part in parts {
+                let normalized = normalizeToken(part)
+                if normalized.isEmpty {
+                    continue
+                }
+                tokens.append(normalized)
+            }
+        }
+        return tokens
+    }
+
+    private func extractAlphanumericSegments(from value: String) -> [String] {
+        var segments: [String] = []
+        var current = ""
+
+        for scalar in value.unicodeScalars {
+            if CharacterSet.alphanumerics.contains(scalar) {
+                current.unicodeScalars.append(scalar)
+            } else if !current.isEmpty {
+                segments.append(current)
+                current = ""
+            }
+        }
+
+        if !current.isEmpty {
+            segments.append(current)
+        }
+
+        return segments
+    }
+
+    private func splitCamelCase(_ value: String) -> [String] {
+        guard !value.isEmpty else {
+            return []
+        }
+
+        let scalars = Array(value.unicodeScalars)
+        var parts: [String] = []
+        var current = ""
+
+        func isUpper(_ scalar: UnicodeScalar) -> Bool {
+            CharacterSet.uppercaseLetters.contains(scalar)
+        }
+
+        func isLower(_ scalar: UnicodeScalar) -> Bool {
+            CharacterSet.lowercaseLetters.contains(scalar)
+        }
+
+        func isDigit(_ scalar: UnicodeScalar) -> Bool {
+            CharacterSet.decimalDigits.contains(scalar)
+        }
+
+        for index in scalars.indices {
+            let scalar = scalars[index]
+            let char = Character(scalar)
+
+            let prevScalar = index > scalars.startIndex ? scalars[index - 1] : nil
+            let nextScalar = index < scalars.index(before: scalars.endIndex) ? scalars[index + 1] : nil
+
+            let shouldSplit: Bool = {
+                guard let prevScalar else { return false }
+
+                if isDigit(scalar), !isDigit(prevScalar) {
+                    return true
+                }
+
+                if !isDigit(scalar), isDigit(prevScalar) {
+                    return true
+                }
+
+                if isUpper(scalar), isLower(prevScalar) {
+                    return true
+                }
+
+                if isUpper(scalar), isUpper(prevScalar), let nextScalar, isLower(nextScalar) {
+                    return true
+                }
+
+                return false
+            }()
+
+            if shouldSplit, !current.isEmpty {
+                parts.append(current)
+                current = ""
+            }
+
+            current.append(char)
+        }
+
+        if !current.isEmpty {
+            parts.append(current)
+        }
+
+        return parts
+    }
+
+    private func normalizeToken(_ value: String) -> String {
+        let lowered = value.lowercased()
+        let folded = lowered.folding(options: [.diacriticInsensitive, .widthInsensitive], locale: .current)
+        let trimmed = folded.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed
+    }
+
+    private func shouldAddLetterSequenceVariant(for value: String) -> Bool {
+        guard !value.isEmpty else {
+            return false
+        }
+
+        let scalars = value.unicodeScalars
+        return scalars.allSatisfy { CharacterSet.letters.contains($0) } && value == value.uppercased()
+    }
+
+    private func sequencePattern(for tokens: [String], softSeparator: String) -> String {
+        let escapedTokens = tokens.map { NSRegularExpression.escapedPattern(for: $0) }
+        return escapedTokens.joined(separator: softSeparator)
+    }
+
+    private func extensionPattern(for token: String, softSeparator: String) -> String {
+        let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.contains(" ") {
+            let parts = trimmed.split(separator: " ").map(String.init)
+            if parts.allSatisfy({ $0.count == 1 }) {
+                return sequencePattern(for: parts, softSeparator: softSeparator)
+            }
+        }
+
+        return NSRegularExpression.escapedPattern(for: trimmed)
+    }
+
+    private func extensionAliasTokens(for ext: String) -> [String] {
+        let aliases: [String: [String]] = [
+            "md": ["markdown"],
+            "yml": ["yaml"],
+            "yaml": ["yml"],
+            "js": ["javascript"],
+            "ts": ["typescript"],
+            "py": ["python"],
+            "rb": ["ruby"],
+            "rs": ["rust"],
+            "kt": ["kotlin"],
+            "txt": ["text"]
+        ]
+
+        return aliases[ext] ?? []
     }
 }

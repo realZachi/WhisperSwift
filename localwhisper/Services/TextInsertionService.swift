@@ -17,9 +17,21 @@ class TextInsertionService {
 
     private let accessibilityInsertPromptKey = "didPromptAccessibilityInsert"
     private let accessibilityInsertBlacklist: Set<String> = [
+        // Code editors (handle text insertion differently)
         "com.microsoft.VSCode",
         "com.microsoft.VSCodeInsiders",
-        "com.vscodium"
+        "com.vscodium",
+        // Browsers (web textboxes don't support Accessibility API text insertion)
+        "com.google.Chrome",
+        "com.google.Chrome.canary",
+        "org.chromium.Chromium",
+        "com.brave.Browser",
+        "com.microsoft.edgemac",
+        "com.apple.Safari",
+        "org.mozilla.firefox",
+        "com.operasoftware.Opera",
+        "com.vivaldi.Vivaldi",
+        "company.thebrowser.Browser", // Arc
     ]
 
     /// Insert text into the currently focused text field using Accessibility or clipboard.

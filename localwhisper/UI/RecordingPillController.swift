@@ -18,6 +18,9 @@ class RecordingPillController {
     let audioMonitor = AudioLevelMonitor()
     let stateManager = RecordingPillStateManager()
 
+    private let panelWidth: CGFloat = 180
+    private let panelHeight: CGFloat = 60
+
     init() {
         setupPanel()
     }
@@ -27,10 +30,10 @@ class RecordingPillController {
             audioMonitor: audioMonitor,
             stateManager: stateManager
         ))
-        hostingView.frame = NSRect(x: 0, y: 0, width: 140, height: 140)
+        hostingView.frame = NSRect(x: 0, y: 0, width: panelWidth, height: panelHeight)
 
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 140, height: 140),
+            contentRect: NSRect(x: 0, y: 0, width: panelWidth, height: panelHeight),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -55,7 +58,7 @@ class RecordingPillController {
         let screenFrame = screen.visibleFrame
         let panelSize = panel.frame.size
         let xPos = screenFrame.origin.x + (screenFrame.width - panelSize.width) / 2
-        let yPos = screenFrame.origin.y + 40
+        let yPos = screenFrame.origin.y + 60
 
         panel.setFrameOrigin(NSPoint(x: xPos, y: yPos))
 
@@ -63,7 +66,7 @@ class RecordingPillController {
         panel.orderFront(nil)
 
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.25
+            context.duration = 0.2
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             panel.animator().alphaValue = 1
         }
@@ -84,7 +87,7 @@ class RecordingPillController {
         audioMonitor.reset()
 
         NSAnimationContext.runAnimationGroup({ context in
-            context.duration = 0.2
+            context.duration = 0.15
             context.timingFunction = CAMediaTimingFunction(name: .easeIn)
             panel.animator().alphaValue = 0
         }, completionHandler: {
@@ -106,10 +109,8 @@ private struct PillContainerView: View {
     var stateManager: RecordingPillStateManager
 
     var body: some View {
-        let _ = stateManager.state // Force observation
-        ZStack {
-            RecordingPillView(audioMonitor: audioMonitor, state: stateManager.state)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        let _ = stateManager.state
+        RecordingPillView(audioMonitor: audioMonitor, state: stateManager.state)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

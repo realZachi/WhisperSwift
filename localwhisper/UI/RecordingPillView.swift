@@ -15,8 +15,8 @@ final class AudioLevelMonitor {
     var smoothedLevel: Float = 0
     var peakLevel: Float = 0
 
-    private let smoothingFactor: Float = 0.3
-    private let peakDecay: Float = 0.95
+    private let smoothingFactor: Float = 0.25
+    private let peakDecay: Float = 0.92
 
     func update(level: Float) {
         currentLevel = level
@@ -49,209 +49,299 @@ struct RecordingPillView: View {
     var audioMonitor: AudioLevelMonitor
     var state: RecordingPillState
 
-    @State private var morphProgress: CGFloat = 0
+    @State private var isAnimating = false
+    @Namespace private var pillNamespace
+
+    var body: some View {
+        pillContent
+            .onAppear {
+                isAnimating = true
+            }
+    }
+
+    @ViewBuilder
+    private var pillContent: some View {
+        if #available(macOS 26.0, *) {
+            // Liquid Glass version for macOS 26+
+            liquidGlassContent
+        } else {
+            // Fallback for older macOS
+            legacyGlassContent
+        }
+    }
+
+    // MARK: - Liquid Glass (macOS 26+)
+
+    @available(macOS 26.0, *)
+    private var liquidGlassContent: some View {
+        GlassEffectContainer {
+            HStack(spacing: 14) {
+                if state == .recording {
+                    recordingIndicator
+                } else {
+                    processingIndicator
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
+            .glassEffect(.regular.interactive(), in: Capsule())
+            .glassEffectID("pill", in: pillNamespace)
+        }
+        .animation(.smooth(duration: 0.4), value: state)
+    }
+
+    // MARK: - Legacy Glass (macOS 13-25)
+
+    private var legacyGlassContent: some View {
+        ZStack {
+            // Frosted glass background
+            Capsule()
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    Capsule()
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0.35),
+                                    Color.white.opacity(0.1),
+                                    Color.white.opacity(0.05)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 0.5
+                        )
+                )
+                .shadow(color: Color.black.opacity(0.25), radius: 20, y: 8)
+                .shadow(color: Color.black.opacity(0.1), radius: 1, y: 1)
+
+            // Content
+            HStack(spacing: 14) {
+                if state == .recording {
+                    recordingIndicator
+                } else {
+                    processingIndicator
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
+        }
+        .fixedSize()
+        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: state)
+    }
+
+    // MARK: - Recording Indicator
+
+    private var recordingIndicator: some View {
+        HStack(spacing: 14) {
+            RecordingDotView(isAnimating: isAnimating)
+
+            WaveformView(
+                level: CGFloat(audioMonitor.smoothedLevel),
+                peak: CGFloat(audioMonitor.peakLevel)
+            )
+            .frame(width: 52, height: 26)
+        }
+    }
+
+    // MARK: - Processing Indicator
+
+    private var processingIndicator: some View {
+        HStack(spacing: 10) {
+            AppleSpinnerView()
+                .frame(width: 20, height: 20)
+
+            // Three animated dots
+            ProcessingDotsView()
+        }
+    }
+}
+
+// MARK: - Recording Dot
+
+private struct RecordingDotView: View {
+    var isAnimating: Bool
+
+    @State private var isPulsing = false
 
     var body: some View {
         ZStack {
-            MorphingIndicatorView(
-                audioMonitor: audioMonitor,
-                isProcessing: state == .processing,
-                morphProgress: morphProgress
-            )
+            // Outer pulse ring
+            Circle()
+                .fill(Color.red.opacity(0.25))
+                .frame(width: 28, height: 28)
+                .scaleEffect(isPulsing ? 1.4 : 1.0)
+                .opacity(isPulsing ? 0 : 0.5)
+
+            // Main recording dot
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            Color(red: 1.0, green: 0.35, blue: 0.35),
+                            Color.red
+                        ],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: 8
+                    )
+                )
+                .frame(width: 14, height: 14)
+                .shadow(color: Color.red.opacity(0.6), radius: 6)
         }
-        .frame(width: 120, height: 120)
-        .onChange(of: state) { _, newState in
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.75)) {
-                morphProgress = newState == .processing ? 1 : 0
+        .onAppear {
+            guard isAnimating else { return }
+            withAnimation(
+                .easeInOut(duration: 1.0)
+                .repeatForever(autoreverses: false)
+            ) {
+                isPulsing = true
+            }
+        }
+        .onDisappear {
+            isPulsing = false
+        }
+    }
+}
+
+// MARK: - Waveform Visualization
+
+private struct WaveformView: View {
+    var level: CGFloat
+    var peak: CGFloat
+
+    private let barCount = 5
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(0..<barCount, id: \.self) { index in
+                WaveformBar(
+                    index: index,
+                    level: level,
+                    peak: peak,
+                    totalBars: barCount
+                )
+            }
+        }
+        .animation(.interpolatingSpring(stiffness: 280, damping: 18), value: level)
+    }
+}
+
+private struct WaveformBar: View {
+    let index: Int
+    let level: CGFloat
+    let peak: CGFloat
+    let totalBars: Int
+
+    private var normalizedIndex: CGFloat {
+        let center = CGFloat(totalBars - 1) / 2.0
+        let distance = abs(CGFloat(index) - center)
+        return 1.0 - (distance / center) * 0.5
+    }
+
+    private var barHeight: CGFloat {
+        let minHeight: CGFloat = 5
+        let maxHeight: CGFloat = 26
+        let intensity = min(1.0, level * 1.3 + peak * 0.25)
+        let height = minHeight + (maxHeight - minHeight) * intensity * normalizedIndex
+        return max(minHeight, height)
+    }
+
+    var body: some View {
+        Capsule()
+            .fill(
+                LinearGradient(
+                    colors: [
+                        Color.primary.opacity(0.85),
+                        Color.primary.opacity(0.45)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+            .frame(width: 4, height: barHeight)
+    }
+}
+
+// MARK: - Processing Dots Animation
+
+private struct ProcessingDotsView: View {
+    @State private var animatingDot = 0
+
+    private let dotCount = 3
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(0..<dotCount, id: \.self) { index in
+                Circle()
+                    .fill(Color.primary.opacity(animatingDot == index ? 0.9 : 0.3))
+                    .frame(width: 6, height: 6)
+                    .scaleEffect(animatingDot == index ? 1.2 : 1.0)
+            }
+        }
+        .task {
+            await animateDots()
+        }
+    }
+
+    private func animateDots() async {
+        while !Task.isCancelled {
+            try? await Task.sleep(for: .milliseconds(350))
+            guard !Task.isCancelled else { break }
+            withAnimation(.easeInOut(duration: 0.2)) {
+                animatingDot = (animatingDot + 1) % dotCount
             }
         }
     }
 }
 
-// MARK: - Morphing Indicator
+// MARK: - Apple-style Spinner
 
-struct MorphingIndicatorView: View {
-    var audioMonitor: AudioLevelMonitor
-    var isProcessing: Bool
-    var morphProgress: CGFloat
+private struct AppleSpinnerView: View {
+    @State private var rotation: Double = 0
 
-    @State private var processingRotation: Double = 0
+    private let segmentCount = 8
 
     var body: some View {
-        GeometryReader { proxy in
-            let size = min(proxy.size.width, proxy.size.height)
-            let level = clamped(CGFloat(audioMonitor.smoothedLevel))
-            let peak = clamped(CGFloat(audioMonitor.peakLevel))
-            let plateSize = size * 0.88
-
-            ZStack {
-                basePlate(size: plateSize, level: level)
-
-                recordingContent(size: plateSize, level: level, peak: peak)
-                    .opacity(1 - morphProgress)
-                    .scaleEffect(1 - morphProgress * 0.05)
-
-                processingContent(size: plateSize)
-                    .opacity(morphProgress)
-                    .scaleEffect(0.9 + morphProgress * 0.1)
-            }
-            .frame(width: size, height: size)
-        }
-        .onAppear {
-            if isProcessing {
-                startProcessingRotation()
-            }
-        }
-        .onChange(of: isProcessing) { _, newValue in
-            if newValue {
-                startProcessingRotation()
-            }
-        }
-        .animation(.easeOut(duration: 0.12), value: audioMonitor.smoothedLevel)
-        .animation(.easeOut(duration: 0.18), value: audioMonitor.peakLevel)
-    }
-
-    private func basePlate(size: CGFloat, level: CGFloat) -> some View {
         ZStack {
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            Color(white: 0.18),
-                            Color(white: 0.12),
-                            Color(white: 0.08)
-                        ],
-                        center: .center,
-                        startRadius: 0,
-                        endRadius: size * 0.6
-                    )
+            ForEach(0..<segmentCount, id: \.self) { index in
+                SpinnerSegment(
+                    index: index,
+                    totalSegments: segmentCount
                 )
-
-            Circle()
-                .strokeBorder(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.22),
-                            Color.white.opacity(0.05)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1
-                )
-
-            Circle()
-                .stroke(Color.white.opacity(0.08 + level * 0.12), lineWidth: 1)
-                .blur(radius: 1)
+            }
         }
-        .frame(width: size, height: size)
-        .shadow(color: Color.black.opacity(0.35), radius: 10, y: 6)
-    }
-
-    private func recordingContent(size: CGFloat, level: CGFloat, peak: CGFloat) -> some View {
-        let ringSize = size * 0.86
-        let haloSize = size * 0.94
-        let ringWidth = 2 + level * 2
-        let arcLength = 0.18 + level * 0.55
-
-        return ZStack {
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            Color.cyan.opacity(0.22 + level * 0.35),
-                            Color.clear
-                        ],
-                        center: .center,
-                        startRadius: 0,
-                        endRadius: haloSize * 0.55
-                    )
-                )
-                .frame(width: haloSize, height: haloSize)
-
-            Circle()
-                .trim(from: 0, to: arcLength)
-                .stroke(
-                    AngularGradient(
-                        colors: [
-                            Color.white.opacity(0.2),
-                            Color.cyan.opacity(0.8),
-                            Color.white.opacity(0.2)
-                        ],
-                        center: .center
-                    ),
-                    style: StrokeStyle(lineWidth: ringWidth, lineCap: .round)
-                )
-                .rotationEffect(.degrees(-90))
-                .frame(width: ringSize, height: ringSize)
-
-            waveformBars(size: size, level: level, peak: peak)
-        }
-        .frame(width: size, height: size)
-    }
-
-    private func processingContent(size: CGFloat) -> some View {
-        let ringSize = size * 0.56
-
-        return ZStack {
-            Circle()
-                .stroke(Color.white.opacity(0.18), lineWidth: 2)
-
-            Circle()
-                .trim(from: 0, to: 0.22)
-                .stroke(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.95),
-                            Color.cyan.opacity(0.45)
-                        ],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    ),
-                    style: StrokeStyle(lineWidth: 3, lineCap: .round)
-                )
-                .rotationEffect(.degrees(processingRotation))
-        }
-        .frame(width: ringSize, height: ringSize)
-    }
-
-    private func waveformBars(size: CGFloat, level: CGFloat, peak: CGFloat) -> some View {
-        let maxHeight = size * 0.32
-        let minHeight = size * 0.12
-        let weights: [CGFloat] = [0.35, 0.6, 0.95, 0.6, 0.35]
-        let intensity = clamped(level * 0.9 + peak * 0.25)
-
-        return HStack(spacing: size * 0.05) {
-            ForEach(0..<weights.count, id: \.self) { index in
-                let weight = weights[index]
-                let height = minHeight + (maxHeight - minHeight) * clamped(intensity * weight + 0.08)
-
-                Capsule()
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.95),
-                                Color.white.opacity(0.6)
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .frame(width: size * 0.045, height: height)
-                    .shadow(color: Color.white.opacity(0.15 + level * 0.25), radius: 2, y: 1)
+        .rotationEffect(.degrees(rotation))
+        .onAppear {
+            withAnimation(
+                .linear(duration: 0.85)
+                .repeatForever(autoreverses: false)
+            ) {
+                rotation = 360
             }
         }
     }
+}
 
-    private func startProcessingRotation() {
-        processingRotation = 0
-        withAnimation(.linear(duration: 1.4).repeatForever(autoreverses: false)) {
-            processingRotation = 360
-        }
+private struct SpinnerSegment: View {
+    let index: Int
+    let totalSegments: Int
+
+    private var opacity: Double {
+        let step = 1.0 / Double(totalSegments)
+        return step * Double(index + 1)
     }
 
-    private func clamped(_ value: CGFloat) -> CGFloat {
-        min(max(value, 0), 1)
+    private var angle: Double {
+        (360.0 / Double(totalSegments)) * Double(index)
+    }
+
+    var body: some View {
+        Capsule()
+            .fill(Color.primary.opacity(opacity))
+            .frame(width: 2.5, height: 6)
+            .offset(y: -7)
+            .rotationEffect(.degrees(angle))
     }
 }
 
@@ -259,17 +349,32 @@ struct MorphingIndicatorView: View {
 
 #Preview("Recording") {
     let monitor = AudioLevelMonitor()
-    monitor.smoothedLevel = 0.4
+    monitor.smoothedLevel = 0.5
+    monitor.peakLevel = 0.7
 
-    return RecordingPillView(audioMonitor: monitor, state: .recording)
-        .padding(40)
-        .background(Color.black.opacity(0.9))
+    return ZStack {
+        LinearGradient(
+            colors: [Color.blue.opacity(0.4), Color.purple.opacity(0.4)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+
+        RecordingPillView(audioMonitor: monitor, state: .recording)
+    }
+    .frame(width: 400, height: 200)
 }
 
 #Preview("Processing") {
     let monitor = AudioLevelMonitor()
 
-    return RecordingPillView(audioMonitor: monitor, state: .processing)
-        .padding(40)
-        .background(Color.black.opacity(0.9))
+    return ZStack {
+        LinearGradient(
+            colors: [Color.orange.opacity(0.3), Color.pink.opacity(0.3)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+
+        RecordingPillView(audioMonitor: monitor, state: .processing)
+    }
+    .frame(width: 400, height: 200)
 }

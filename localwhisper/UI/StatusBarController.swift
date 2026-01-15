@@ -134,7 +134,6 @@ class StatusBarController {
 
     private func updateHotkeyMenuItem() {
         let hotkey = UserDefaults.standard.string(forKey: "selectedHotkey") ?? "fn"
-        let handsFree = UserDefaults.standard.bool(forKey: "handsFreeMode")
         let keyName: String
 
         switch hotkey {
@@ -146,9 +145,7 @@ class StatusBarController {
             keyName = "Fn"
         }
 
-        let title = handsFree
-            ? "Press \(keyName) to start/stop recording"
-            : "Hold \(keyName) to record"
+        let title = "Hold \(keyName) to record, double-tap to lock"
 
         if let menu = statusItem.menu,
            let hotkeyMenuItem = menu.item(withTag: 102) {

@@ -21,7 +21,13 @@ nonisolated func logToFile(_ message: String) {
     }
 }
 
+@MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
+    private enum RecordingGestureConstants {
+        static let tapMaxDuration: TimeInterval = 0.20
+        static let doubleTapInterval: TimeInterval = 0.35
+    }
+
     private var statusBarController: StatusBarController?
     private var hotkeyManager: HotkeyManager?
     private var groqService: GroqTranscriptionService?
@@ -31,6 +37,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var contextService: ContextService?
     private var isRecording = false
     private var isProcessing = false
+    private var isLockedRecording = false
+    private var keyDownTimestamp: TimeInterval?
+    private var lastTapEndTimestamp: TimeInterval?
+    private var pendingStopWorkItem: DispatchWorkItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         logToFile("🚀 App started")
@@ -38,8 +48,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             "selectedHotkey": "fn",
             "playSounds": true,
             "groqModel": "whisper-large-v3-turbo",
-            "groqLanguage": "de",
-            "handsFreeMode": false
         ])
 
         // Initialize status bar
@@ -104,29 +112,87 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func handleHotkeyDown() async {
-        if isHandsFreeModeEnabled() {
-            if isProcessing {
-                logToFile("⏳ Ignoring hotkey while processing")
-                return
-            }
+        if isProcessing {
+            logToFile("⏳ Ignoring hotkey while processing")
+            return
+        }
 
-            if isRecording {
-                await stopRecordingAndTranscribe()
-            } else {
-                await startRecording()
-            }
-        } else {
+        if isLockedRecording {
+            await stopRecordingAndTranscribe()
+            return
+        }
+
+        pendingStopWorkItem?.cancel()
+        pendingStopWorkItem = nil
+
+        if !isRecording {
             await startRecording()
         }
+
+        keyDownTimestamp = Date.timeIntervalSinceReferenceDate
     }
 
     private func handleHotkeyUp() async {
-        guard !isHandsFreeModeEnabled() else { return }
-        await stopRecordingAndTranscribe()
+        guard !isLockedRecording else {
+            logToFile("⬆️ Key up ignored - hands-free lock active")
+            return
+        }
+        guard isRecording else {
+            logToFile("⬆️ Key up ignored - not currently recording")
+            return
+        }
+
+        let now = Date.timeIntervalSinceReferenceDate
+
+        guard let downTimestamp = keyDownTimestamp else {
+            logToFile("⚠️ Key up received without corresponding key down timestamp - stopping recording")
+            lastTapEndTimestamp = nil
+            await stopRecordingAndTranscribe()
+            return
+        }
+
+        let pressDuration = now - downTimestamp
+        keyDownTimestamp = nil
+
+        if pressDuration <= RecordingGestureConstants.tapMaxDuration {
+            if let lastTapEndTimestamp,
+               now - lastTapEndTimestamp <= RecordingGestureConstants.doubleTapInterval {
+                self.lastTapEndTimestamp = nil
+                isLockedRecording = true
+                logToFile("🔒 Hands-free lock engaged (double-tap)")
+                return
+            }
+
+            lastTapEndTimestamp = now
+            scheduleStopAfterDoubleTapWindow()
+        } else {
+            lastTapEndTimestamp = nil
+            pendingStopWorkItem?.cancel()
+            pendingStopWorkItem = nil
+            await stopRecordingAndTranscribe()
+        }
     }
 
-    private func isHandsFreeModeEnabled() -> Bool {
-        UserDefaults.standard.bool(forKey: "handsFreeMode")
+    private func scheduleStopAfterDoubleTapWindow() {
+        guard isRecording else { return }
+
+        pendingStopWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            Task { @MainActor in
+                guard let self else { return }
+                guard self.isRecording && !self.isLockedRecording && !self.isProcessing else {
+                    logToFile("⏱️ Scheduled stop skipped - state changed (recording=\(self.isRecording), locked=\(self.isLockedRecording), processing=\(self.isProcessing))")
+                    return
+                }
+                logToFile("⏱️ Double-tap window expired, stopping recording")
+                await self.stopRecordingAndTranscribe()
+            }
+        }
+        pendingStopWorkItem = workItem
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + RecordingGestureConstants.doubleTapInterval,
+            execute: workItem
+        )
     }
 
     private func startRecording() async {
@@ -141,6 +207,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         isRecording = true
+        isLockedRecording = false
 
         await MainActor.run {
             statusBarController?.state = .recording
@@ -153,6 +220,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         } catch {
             logToFile("❌ Failed to start recording: \(error)")
             isRecording = false
+            isLockedRecording = false
+            keyDownTimestamp = nil
+            lastTapEndTimestamp = nil
+            pendingStopWorkItem?.cancel()
+            pendingStopWorkItem = nil
             await MainActor.run {
                 statusBarController?.state = .idle
                 recordingPillController?.hide()
@@ -175,6 +247,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         isRecording = false
         isProcessing = true
+        isLockedRecording = false
+        keyDownTimestamp = nil
+        lastTapEndTimestamp = nil
+        pendingStopWorkItem?.cancel()
+        pendingStopWorkItem = nil
 
         await MainActor.run {
             statusBarController?.state = .processing

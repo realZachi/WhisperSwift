@@ -57,10 +57,21 @@ class TextInsertionService {
         }
 
         // Check if there's a focused text element
-        if !hasFocusedTextElement() {
-            copyToClipboard(trimmed)
-            logToFile("⚠️ No focused text element - saved to clipboard for manual paste")
-            return .noFocusedTarget
+        let hasFocused = hasFocusedTextElement()
+
+        if !hasFocused {
+            // No focused element found via Accessibility API
+            // But if there's a frontmost app, still try clipboard paste - it often works
+            // even when Accessibility can't find the focused element (e.g., Electron apps)
+            if frontmostBundleId != nil {
+                logToFile("⚠️ No focused element via Accessibility, but app is frontmost - trying clipboard paste")
+                pasteViaClipboard(trimmed)
+                return .inserted
+            } else {
+                copyToClipboard(trimmed)
+                logToFile("⚠️ No focused text element and no frontmost app - saved to clipboard")
+                return .noFocusedTarget
+            }
         }
 
         if let bundleId = frontmostBundleId, accessibilityInsertBlacklist.contains(bundleId) {
@@ -150,60 +161,46 @@ class TextInsertionService {
         NSWorkspace.shared.frontmostApplication?.bundleIdentifier
     }
 
-    /// Check if there's a focused text element that can receive text
+    /// Check if there's a focused element that could potentially receive text.
+    /// We use a permissive approach: if ANY element is focused, we try to paste.
+    /// The clipboard paste fallback (Cmd+V) works in virtually all apps.
     private func hasFocusedTextElement() -> Bool {
         guard let focused = getFocusedElement() else {
+            logToFile("🔍 hasFocusedTextElement: getFocusedElement() returned nil")
             return false
         }
 
-        // Check if element has text-related attributes
+        // Get the role of the focused element
         var role: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(focused, kAXRoleAttribute as CFString, &role) == .success,
-              let roleString = role as? String else {
-            return false
-        }
-
-        // Common text-accepting roles
-        let textRoles: Set<String> = [
-            kAXTextFieldRole as String,
-            kAXTextAreaRole as String,
-            kAXComboBoxRole as String,
-            "AXSearchField",
-        ]
-
-        let isEditable = isAttributeTrue(focused, attribute: "AXEditable")
-        let supportsSelectedText = isAttributeSettable(focused, attribute: kAXSelectedTextAttribute)
-        let supportsValue = isAttributeSettable(focused, attribute: kAXValueAttribute)
-
-        if roleString == "AXWebArea" {
-            return isEditable || supportsSelectedText
-        }
-
-        if textRoles.contains(roleString) {
-            return isEditable || supportsSelectedText || supportsValue
-        }
-
-        if isEditable && (supportsSelectedText || supportsValue) {
+        let roleResult = AXUIElementCopyAttributeValue(focused, kAXRoleAttribute as CFString, &role)
+        guard roleResult == .success, let roleString = role as? String else {
+            // If we can't get the role, still try to paste - worst case it doesn't work
+            logToFile("🔍 hasFocusedTextElement: Can't get role (error: \(roleResult.rawValue)), trying paste anyway")
             return true
         }
 
-        return false
-    }
+        logToFile("🔍 hasFocusedTextElement: Focused element role = \(roleString)")
 
-    private func isAttributeSettable(_ element: AXUIElement, attribute: String) -> Bool {
-        var isSettable: DarwinBoolean = false
-        return AXUIElementIsAttributeSettable(element, attribute as CFString, &isSettable) == .success && isSettable.boolValue
-    }
+        // Roles that definitely DON'T accept text input
+        let nonTextRoles: Set<String> = [
+            kAXMenuBarRole as String,
+            kAXMenuRole as String,
+            kAXMenuItemRole as String,
+            kAXToolbarRole as String,
+            "AXScrollBar",
+            "AXSplitter",
+        ]
 
-    private func isAttributeTrue(_ element: AXUIElement, attribute: String) -> Bool {
-        guard let value = getAttributeValue(element, attribute: attribute) else { return false }
-        if let boolValue = value as? Bool {
-            return boolValue
+        // If it's definitely not a text-accepting element, don't try
+        if nonTextRoles.contains(roleString) {
+            logToFile("🔍 hasFocusedTextElement: Role is in nonTextRoles, returning false")
+            return false
         }
-        if let number = value as? NSNumber {
-            return number.boolValue
-        }
-        return false
+
+        // For all other roles (including unknown ones), try to paste
+        // This covers: text fields, text areas, web areas, code editors, terminals, etc.
+        logToFile("🔍 hasFocusedTextElement: Role accepted, returning true")
+        return true
     }
 
 }

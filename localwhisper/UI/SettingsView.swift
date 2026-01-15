@@ -58,14 +58,7 @@ struct GeneralSettingsView: View {
             Section("Groq API") {
                 SecureField("API Key", text: $groqApiKey)
                 TextField("Model", text: $groqModel)
-                TextField("Language (optional)", text: $groqLanguage)
-
-                Text("Leave the API key empty to use GROQ_API_KEY from the environment.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                Text("Audio is sent to Groq for transcription.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                TextField("Language", text: $groqLanguage)
             }
         }
         .formStyle(.grouped)
@@ -182,9 +175,14 @@ struct AboutView: View {
 
             Divider()
 
-            Text("Groq API for transcription")
-                .font(.caption)
-                .foregroundColor(.secondary)
+            VStack(spacing: 4) {
+                Text("Developed by Mahmoud Ali Khan")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Link("github.com/realZachi", destination: URL(string: "https://github.com/realZachi")!)
+                    .font(.caption)
+            }
         }
         .padding(32)
     }

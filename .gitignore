@@ -58,3 +58,6 @@ localwhisper/Resources/models/*.bin
 *.tmp
 *.temp
 *.log
+
+# Local release notes (do not commit)
+.release.md

@@ -154,14 +154,55 @@ extension TextInsertionService {
     /// This can work even when Cmd+V doesn't (e.g., in some terminal apps)
     func insertTextViaAccessibility(_ text: String) -> Bool {
         guard let focusedElement = getFocusedElement() else {
+            logToFile("⚠️ Accessibility: No focused element found")
             return false
         }
 
-        // Try to set the value directly
-        var textValue: CFTypeRef = text as CFTypeRef
-        let result = AXUIElementSetAttributeValue(focusedElement, kAXValueAttribute as CFString, textValue)
+        // Use kAXSelectedTextAttribute to insert at cursor position
+        // This replaces the current selection (or inserts if nothing selected)
+        let textValue: CFTypeRef = text as CFTypeRef
+        let result = AXUIElementSetAttributeValue(focusedElement, kAXSelectedTextAttribute as CFString, textValue)
 
-        return result == .success
+        if result == .success {
+            logToFile("✅ Accessibility: Inserted via kAXSelectedTextAttribute")
+            return true
+        }
+
+        // Fallback: Try kAXValueAttribute only if the element doesn't support selected text
+        // (e.g., some non-standard text fields)
+        logToFile("⚠️ Accessibility: kAXSelectedTextAttribute failed (\(result.rawValue)), trying kAXValueAttribute fallback")
+
+        // Get current value and selection range to manually insert
+        if let currentValue = getAttributeValue(focusedElement, attribute: kAXValueAttribute as String) as? String,
+           let rangeValue = getAttributeValue(focusedElement, attribute: kAXSelectedTextRangeAttribute as String) {
+
+            var range = CFRange()
+            if AXValueGetValue(rangeValue as! AXValue, .cfRange, &range) {
+                // Build new string with text inserted at cursor position
+                let startIndex = currentValue.index(currentValue.startIndex, offsetBy: min(range.location, currentValue.count))
+                let endIndex = currentValue.index(startIndex, offsetBy: min(range.length, currentValue.count - range.location))
+
+                var newValue = currentValue
+                newValue.replaceSubrange(startIndex..<endIndex, with: text)
+
+                let newTextValue: CFTypeRef = newValue as CFTypeRef
+                let fallbackResult = AXUIElementSetAttributeValue(focusedElement, kAXValueAttribute as CFString, newTextValue)
+
+                if fallbackResult == .success {
+                    // Move cursor to end of inserted text
+                    let newCursorPos = range.location + text.count
+                    var newRangeValue = CFRange(location: newCursorPos, length: 0)
+                    if let newRange = AXValueCreate(.cfRange, &newRangeValue) {
+                        AXUIElementSetAttributeValue(focusedElement, kAXSelectedTextRangeAttribute as CFString, newRange)
+                    }
+                    logToFile("✅ Accessibility: Inserted via kAXValueAttribute with manual cursor handling")
+                    return true
+                }
+            }
+        }
+
+        logToFile("❌ Accessibility: All insertion methods failed")
+        return false
     }
 
     private func getFocusedElement() -> AXUIElement? {

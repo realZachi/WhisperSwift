@@ -81,7 +81,7 @@ Download the latest `.app` from the [Releases](https://github.com/yourusername/w
 
 ## Setup
 
-1. **Launch whisperswift** — it will appear in your menu bar
+1. **Launch WhisperSwift** — it will appear in your menu bar
 2. **Grant permissions** when prompted:
    - **Microphone**: Required to capture your voice
    - **Accessibility**: Required for global hotkeys and direct text insertion
@@ -110,7 +110,7 @@ Download the latest `.app` from the [Releases](https://github.com/yourusername/w
 
 ## Permissions
 
-whisperswift requires two system permissions:
+WhisperSwift requires two system permissions:
 
 ### Microphone Access
 Needed to capture your voice input. The app will prompt you on first launch.

@@ -162,7 +162,7 @@ struct AboutView: View {
                 .font(.system(size: 64))
                 .foregroundColor(.accentColor)
 
-            Text("whisperswift")
+            Text("WhisperSwift")
                 .font(.title)
                 .fontWeight(.bold)
 

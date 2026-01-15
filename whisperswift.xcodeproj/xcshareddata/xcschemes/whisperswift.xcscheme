@@ -15,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier="primary"
                BlueprintIdentifier="A5D93BAF2F18074D00D6F72F"
-               BuildableName="whisperswift.app"
+               BuildableName="WhisperSwift.app"
                BlueprintName="whisperswift"
                ReferencedContainer="container:whisperswift.xcodeproj">
             </BuildableReference>
@@ -44,7 +44,7 @@
          <BuildableReference
             BuildableIdentifier="primary"
             BlueprintIdentifier="A5D93BAF2F18074D00D6F72F"
-            BuildableName="whisperswift.app"
+               BuildableName="WhisperSwift.app"
             BlueprintName="whisperswift"
             ReferencedContainer="container:whisperswift.xcodeproj">
          </BuildableReference>
@@ -61,7 +61,7 @@
          <BuildableReference
             BuildableIdentifier="primary"
             BlueprintIdentifier="A5D93BAF2F18074D00D6F72F"
-            BuildableName="whisperswift.app"
+               BuildableName="WhisperSwift.app"
             BlueprintName="whisperswift"
             ReferencedContainer="container:whisperswift.xcodeproj">
          </BuildableReference>

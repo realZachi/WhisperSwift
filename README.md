@@ -1,4 +1,6 @@
-# whisperswift
+# WhisperSwift
+
+![whisperswift Hero Image](Heroimage.jpeg)
 
 A native macOS menu bar application for lightning-fast speech-to-text transcription using the Groq API. Hold a hotkey, speak, release—your words instantly appear in any text field.
 

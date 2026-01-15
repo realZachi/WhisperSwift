@@ -13,6 +13,44 @@
 - Build from CLI: `xcodebuild -project whisperswift.xcodeproj -scheme whisperswift -configuration Debug build`.
 - Run via Xcode for menu bar behavior and permissions prompts.
 
+## DMG Release Build (Styled)
+Use a fresh release derived data folder (avoids asset copy permission issues after icon changes).
+
+```bash
+# Release build (Developer ID + timestamp)
+xcodebuild -project whisperswift.xcodeproj -scheme whisperswift -configuration Release \
+  -derivedDataPath build/DerivedDataRelease \
+  CODE_SIGN_STYLE=Manual \
+  CODE_SIGN_IDENTITY="Developer ID Application: <Name> (<TEAMID>)" \
+  DEVELOPMENT_TEAM=<TEAMID> \
+  OTHER_CODE_SIGN_FLAGS="--timestamp" build
+
+# Create styled DMG
+APP_NAME="WhisperSwift"
+VOL_NAME="WhisperSwift"
+DERIVED="build/DerivedDataRelease"
+APP_PATH="$DERIVED/Build/Products/Release/${APP_NAME}.app"
+DMG_RW="build/${APP_NAME}.rw.dmg"
+DMG_FINAL="build/${APP_NAME}.dmg"
+
+rm -f "$DMG_RW" "$DMG_FINAL"
+hdiutil create -size 200m -fs HFS+ -volname "$VOL_NAME" -ov "$DMG_RW"
+MOUNT_INFO=$(hdiutil attach -nobrowse -readwrite "$DMG_RW")
+DEVICE=$(echo "$MOUNT_INFO" | awk '/^\\/dev\\// {print $1; exit}')
+MOUNT_POINT=$(echo "$MOUNT_INFO" | awk '/Volumes\\/[^ ]+/ {print $3; exit}')
+
+cp -R "$APP_PATH" "$MOUNT_POINT/"
+ln -s /Applications "$MOUNT_POINT/Applications"
+mkdir -p "$MOUNT_POINT/.background"
+
+# Use your own bg.png or generate one, then set Finder layout via osascript
+# (see CLAUDE.md for the full layout script).
+
+hdiutil detach "$DEVICE"
+hdiutil convert "$DMG_RW" -format UDZO -o "$DMG_FINAL"
+rm -f "$DMG_RW"
+```
+
 ## Coding Style & Naming Conventions
 - Swift style: 4-space indentation; types in `UpperCamelCase`, methods/vars in `lowerCamelCase`.
 - Keep UI in `whisperswift/UI/` and service logic in `whisperswift/Services/`.

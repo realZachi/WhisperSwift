@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-LocalWhisper is a native macOS menu bar application for local, private speech-to-text transcription. It uses WhisperKit (OpenAI Whisper) optimized for Apple Silicon. Users hold a hotkey (Fn, Option, or Control), speak, release, and transcribed text is automatically inserted into the focused application.
+LocalWhisper is a native macOS menu bar application for cloud-based speech-to-text transcription via the Groq API. Users hold a hotkey (Fn, Option, or Control), speak, release, and the transcribed text is automatically inserted into the focused application.
 
 - **Platform**: macOS 13.0+, Apple Silicon optimized
 - **Language**: Swift 5.0, SwiftUI
@@ -36,7 +36,7 @@ localwhisper/
 ├── AppDelegate.swift       # Lifecycle & service orchestration, recording workflow
 ├── localwhisperApp.swift   # SwiftUI entry point
 ├── Services/
-│   ├── WhisperService.swift        # Speech recognition (WhisperKit, Swift actor)
+│   ├── GroqTranscriptionService.swift # Speech recognition (Groq API, Swift actor)
 │   ├── AudioRecorder.swift         # Audio capture, 16kHz conversion, normalization (actor)
 │   ├── HotkeyManager.swift         # Global hotkey detection (NSEvent + CGEvent tap)
 │   ├── PermissionManager.swift     # Microphone & accessibility permissions (singleton)
@@ -47,23 +47,22 @@ localwhisper/
 └── Assets.xcassets/
 ```
 
-**Data Flow**: Hotkey press → AudioRecorder captures → Hotkey release → WhisperService transcribes → TextInsertionService pastes
+**Data Flow**: Hotkey press → AudioRecorder captures → Hotkey release → GroqTranscriptionService transcribes → TextInsertionService pastes
 
 **Key Dependencies**:
-- WhisperKit (Swift Package)
-- Model: `large-v3-turbo` (downloaded on first launch)
+- Groq API (HTTP multipart transcription endpoint)
 
 ## Coding Conventions
 
 - Swift style: 4-space indentation
 - Types: `UpperCamelCase`, methods/vars: `lowerCamelCase`
 - UI code in `localwhisper/UI/`, service logic in `localwhisper/Services/`
-- Use Swift actors for thread-safe services (WhisperService, AudioRecorder)
+- Use Swift actors for thread-safe services (GroqTranscriptionService, AudioRecorder)
 
 ## Important Notes
 
 - **Sandbox disabled**: Required for global hotkeys and accessibility API access
 - **Debug logging**: Writes to `/tmp/localwhisper.log`
-- **Default language**: German (hardcoded in WhisperService, supports 90+ languages)
+- **Default language**: German (default in UserDefaults, override in Settings)
 - **Entitlements**: Edit `localwhisper/localwhisper.entitlements` carefully when adding capabilities
-- **Network usage**: One-time model download on first launch; no telemetry or cloud features
+- **Network usage**: Active internet required; audio is sent to Groq for transcription

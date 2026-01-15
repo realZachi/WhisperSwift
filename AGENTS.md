@@ -23,7 +23,7 @@
 - Name test files `SomethingTests.swift` and test methods `testSomethingBehavior()`.
 
 ## Commit & Pull Request Guidelines
-- Commit history uses short, imperative messages (e.g. "Fix build errors", "Add WhisperKit integration"). Keep subject lines concise.
+- Commit history uses short, imperative messages (e.g. "Fix build errors", "Add Groq API integration"). Keep subject lines concise.
 - PRs should describe user-visible changes, include reproduction steps, and mention permission impacts (microphone/accessibility) if relevant.
 
 ## Security & Configuration Notes

@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		57F5B92A506B497497CF2FB7 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 9D98E5EC166D4A96A25C2999 /* WhisperKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -40,7 +39,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				57F5B92A506B497497CF2FB7 /* WhisperKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -84,7 +82,6 @@
 			);
 			name = localwhisper;
 			packageProductDependencies = (
-				9D98E5EC166D4A96A25C2999 /* WhisperKit */,
 			);
 			productName = localwhisper;
 			productReference = A5D93BB02F18074D00D6F72F /* localwhisper.app */;
@@ -115,7 +112,6 @@
 			mainGroup = A5D93BA72F18074D00D6F72F;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				2FED78C33FD14A3AA545590C /* WhisperKit */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A5D93BB12F18074D00D6F72F /* Products */;
@@ -146,25 +142,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
-
-/* Begin XCRemoteSwiftPackageReference section */
-		2FED78C33FD14A3AA545590C /* WhisperKit */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/argmaxinc/WhisperKit";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 0.9.4;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		9D98E5EC166D4A96A25C2999 /* WhisperKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 2FED78C33FD14A3AA545590C /* WhisperKit */;
-			productName = WhisperKit;
-		};
-/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCBuildConfiguration section */
 		A5D93BB92F18074E00D6F72F /* Debug */ = {
@@ -377,6 +354,12 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A5D93BA82F18074D00D6F72F /* Project object */;
 }

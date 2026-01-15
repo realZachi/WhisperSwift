@@ -16,9 +16,9 @@
     <key>LSUIElement</key>
     <true/>
 
-    <!-- Microphone permission -->
-    <key>NSMicrophoneUsageDescription</key>
-    <string>LocalWhisper needs microphone access for speech recognition</string>
+	<!-- Microphone permission -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>LocalWhisper needs microphone access to record audio for Groq transcription</string>
 
     <!-- Accessibility permission hint -->
     <key>NSAppleEventsUsageDescription</key>

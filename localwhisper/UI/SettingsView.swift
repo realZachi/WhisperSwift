@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import ServiceManagement
 
 struct SettingsView: View {
     var body: some View {
@@ -33,7 +32,9 @@ struct SettingsView: View {
 struct GeneralSettingsView: View {
     @AppStorage("selectedHotkey") private var selectedHotkey = "fn"
     @AppStorage("playSounds") private var playSounds = true
-    @ObservedObject private var modelStatus = WhisperModelStatus.shared
+    @AppStorage("groqApiKey") private var groqApiKey = ""
+    @AppStorage("groqModel") private var groqModel = "whisper-large-v3-turbo"
+    @AppStorage("groqLanguage") private var groqLanguage = "de"
 
     var body: some View {
         Form {
@@ -54,46 +55,15 @@ struct GeneralSettingsView: View {
                 Toggle("Play sounds", isOn: $playSounds)
             }
 
-            Section("Model") {
-                HStack {
-                    Text("Whisper Model:")
-                    Spacer()
-                    Text(modelStatus.modelName)
-                        .foregroundColor(.secondary)
-                }
+            Section("Groq API") {
+                SecureField("API Key", text: $groqApiKey)
+                TextField("Model", text: $groqModel)
+                TextField("Language (optional)", text: $groqLanguage)
 
-                VStack(alignment: .leading, spacing: 8) {
-                    switch modelStatus.phase {
-                    case .ready:
-                        Label("Ready", systemImage: "checkmark.circle.fill")
-                            .foregroundColor(.green)
-                    case .downloading:
-                        ProgressView(value: modelStatus.progressFraction ?? 0)
-                        Text(modelStatus.message)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    case .failed:
-                        Label("Download failed", systemImage: "xmark.octagon.fill")
-                            .foregroundColor(.red)
-                        Text(modelStatus.message)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Button("Retry Download") {
-                            modelStatus.requestDownload?()
-                        }
-                        .buttonStyle(.bordered)
-                    case .idle:
-                        Text(modelStatus.message)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Button("Download Model") {
-                            modelStatus.requestDownload?()
-                        }
-                        .buttonStyle(.bordered)
-                    }
-                }
-
-                Text("Supports German, English, and 90+ other languages")
+                Text("Leave the API key empty to use GROQ_API_KEY from the environment.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Text("Audio is sent to Groq for transcription.")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -208,13 +178,13 @@ struct AboutView: View {
             Text("Version 1.0")
                 .foregroundColor(.secondary)
 
-            Text("Push-to-talk speech recognition powered by WhisperKit")
+            Text("Push-to-talk speech recognition powered by Groq")
                 .multilineTextAlignment(.center)
                 .foregroundColor(.secondary)
 
             Divider()
 
-            Text("WhisperKit by argmaxinc")
+            Text("Groq API for transcription")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }

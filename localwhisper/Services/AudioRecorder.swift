@@ -8,12 +8,17 @@
 import AVFoundation
 import Accelerate
 
+struct AudioRecording {
+    let samples: [Float]
+    let sampleRate: Double
+}
+
 actor AudioRecorder {
     private var audioEngine: AVAudioEngine?
     private var audioBuffer: [Float] = []
     private var isRecording = false
 
-    // WhisperKit requires 16kHz sample rate
+    // Use 16kHz mono for efficient speech transcription uploads
     private let targetSampleRate: Double = 16000
 
     // Callback for audio level updates (for waveform visualization)
@@ -34,7 +39,7 @@ actor AudioRecorder {
         let inputNode = audioEngine.inputNode
         let inputFormat = inputNode.outputFormat(forBus: 0)
 
-        // Create target format for WhisperKit (16kHz, mono, float32)
+        // Create target format for upload (16kHz, mono, float32)
         guard let targetFormat = AVAudioFormat(
             commonFormat: .pcmFormatFloat32,
             sampleRate: targetSampleRate,
@@ -106,7 +111,7 @@ actor AudioRecorder {
         }
     }
 
-    func stopRecording() -> [Float] {
+    func stopRecording() -> AudioRecording {
         isRecording = false
 
         if let audioEngine = audioEngine {
@@ -131,7 +136,7 @@ actor AudioRecorder {
             logToFile("🎤 Final samples: 0 (silence)")
         }
 
-        return trimmed
+        return AudioRecording(samples: trimmed, sampleRate: targetSampleRate)
     }
 
     private func normalizeAudio(_ samples: [Float]) -> [Float] {

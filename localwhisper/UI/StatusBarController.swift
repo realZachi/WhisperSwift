@@ -30,7 +30,8 @@ class StatusBarController {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         setupButton()
         setupMenu()
-        observeModelStatus()
+        observeDefaults()
+        updateApiMenuItem()
     }
 
     private func setupButton() {
@@ -49,10 +50,10 @@ class StatusBarController {
         statusMenuItem.tag = 100
         menu.addItem(statusMenuItem)
 
-        let modelMenuItem = NSMenuItem(title: "Model: Not downloaded", action: nil, keyEquivalent: "")
-        modelMenuItem.isEnabled = false
-        modelMenuItem.tag = 101
-        menu.addItem(modelMenuItem)
+        let apiMenuItem = NSMenuItem(title: "Groq API: key missing", action: nil, keyEquivalent: "")
+        apiMenuItem.isEnabled = false
+        apiMenuItem.tag = 101
+        menu.addItem(apiMenuItem)
 
         menu.addItem(NSMenuItem.separator())
 
@@ -106,42 +107,25 @@ class StatusBarController {
         }
     }
 
-    private func observeModelStatus() {
-        WhisperModelStatus.shared.$phase
-            .combineLatest(
-                WhisperModelStatus.shared.$progressFraction,
-                WhisperModelStatus.shared.$message,
-                WhisperModelStatus.shared.$modelName
-            )
+    private func observeDefaults() {
+        NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
             .receive(on: RunLoop.main)
-            .sink { [weak self] phase, progress, message, modelName in
-                self?.updateModelMenuItem(phase: phase, progress: progress, message: message, modelName: modelName)
+            .sink { [weak self] _ in
+                self?.updateApiMenuItem()
             }
             .store(in: &cancellables)
     }
 
-    private func updateModelMenuItem(
-        phase: WhisperModelStatus.Phase,
-        progress: Double?,
-        message: String,
-        modelName: String
-    ) {
-        let text: String
-        switch phase {
-        case .ready:
-            text = "Model: \(modelName) ready"
-        case .downloading:
-            let percent = Int((progress ?? 0) * 100)
-            text = "Model: downloading \(percent)%"
-        case .failed:
-            text = "Model: download failed"
-        case .idle:
-            text = "Model: not downloaded"
-        }
+    private func updateApiMenuItem() {
+        let storedKey = UserDefaults.standard.string(forKey: "groqApiKey") ?? ""
+        let envKey = ProcessInfo.processInfo.environment["GROQ_API_KEY"] ?? ""
+        let trimmed = storedKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        let isConfigured = !trimmed.isEmpty || !envKey.isEmpty
+        let text = isConfigured ? "Groq API: key set" : "Groq API: key missing"
 
         if let menu = statusItem.menu,
-           let modelMenuItem = menu.item(withTag: 101) {
-            modelMenuItem.title = text
+           let apiMenuItem = menu.item(withTag: 101) {
+            apiMenuItem.title = text
         }
     }
 

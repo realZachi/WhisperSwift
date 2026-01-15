@@ -25,7 +25,7 @@ func logToFile(_ message: String) {
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusBarController: StatusBarController?
     private var hotkeyManager: HotkeyManager?
-    private var whisperService: WhisperService?
+    private var groqService: GroqTranscriptionService?
     private var audioRecorder: AudioRecorder?
     private var textInsertionService: TextInsertionService?
     private var recordingPillController: RecordingPillController?
@@ -34,7 +34,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         logToFile("🚀 App started")
         UserDefaults.standard.register(defaults: [
             "selectedHotkey": "fn",
-            "playSounds": true
+            "playSounds": true,
+            "groqModel": "whisper-large-v3-turbo",
+            "groqLanguage": "de"
         ])
 
         // Initialize status bar
@@ -73,16 +75,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        // Initialize Whisper service (model downloads in background if needed)
-        logToFile("🤖 Initializing WhisperKit service...")
-        whisperService = await WhisperService()
-        WhisperModelStatus.shared.requestDownload = { [weak self] in
-            guard let whisperService = self?.whisperService else { return }
-            Task {
-                await whisperService.startModelDownloadIfNeeded()
-            }
-        }
-        logToFile("✅ WhisperKit service initialized")
+        // Initialize Groq transcription service
+        logToFile("🤖 Initializing Groq transcription service...")
+        groqService = GroqTranscriptionService()
+        logToFile("✅ Groq transcription service initialized")
 
         // Initialize hotkey manager
         logToFile("🎹 Setting up hotkey manager...")
@@ -125,7 +121,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func stopRecordingAndTranscribe() async {
         guard let audioRecorder = audioRecorder,
-              let whisperService = whisperService,
+              let groqService = groqService,
               let textInsertionService = textInsertionService else {
             logToFile("❌ Services not initialized")
             return
@@ -138,9 +134,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Stop recording and get audio samples
         logToFile("⏹️ Stopping recording...")
-        let audioSamples = await audioRecorder.stopRecording()
+        let recording = await audioRecorder.stopRecording()
 
-        guard !audioSamples.isEmpty else {
+        guard !recording.samples.isEmpty else {
             logToFile("❌ No audio recorded (0 samples)")
             await MainActor.run {
                 statusBarController?.state = .idle
@@ -149,11 +145,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
-        logToFile("📊 Recorded \(audioSamples.count) samples, transcribing...")
+        logToFile("📊 Recorded \(recording.samples.count) samples, transcribing...")
 
         // Transcribe audio
         do {
-            let transcription = try await whisperService.transcribe(audioSamples: audioSamples)
+            let transcription = try await groqService.transcribe(recording: recording)
 
             if !transcription.isEmpty {
                 logToFile("✅ Transcription: \(transcription)")
@@ -174,8 +170,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             } else {
                 logToFile("⚠️ Empty transcription result")
             }
-        } catch WhisperError.modelNotReady {
-            logToFile("⚠️ Model not ready yet. Download in progress.")
+        } catch GroqTranscriptionError.missingApiKey {
+            logToFile("⚠️ Groq API key missing. Set it in Settings or via GROQ_API_KEY.")
         } catch {
             logToFile("❌ Transcription failed: \(error)")
         }
@@ -189,6 +185,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         hotkeyManager = nil
         audioRecorder = nil
-        whisperService = nil
+        groqService = nil
     }
 }

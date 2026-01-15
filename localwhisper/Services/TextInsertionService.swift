@@ -28,6 +28,9 @@ class TextInsertionService {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return .empty }
 
+        let frontmostBundleId = frontmostBundleIdentifier()
+        logToFile("📝 Insert target bundle id: \(frontmostBundleId ?? "unknown")")
+
         guard AXIsProcessTrusted() else {
             copyToClipboard(trimmed)
             promptAccessibilityIfNeeded()
@@ -35,11 +38,13 @@ class TextInsertionService {
             return .copiedToClipboard
         }
 
-        let frontmostBundleId = frontmostBundleIdentifier()
         if let bundleId = frontmostBundleId, accessibilityInsertBlacklist.contains(bundleId) {
             logToFile("⚠️ Skipping Accessibility insert for bundle id: \(bundleId)")
         } else if insertTextViaAccessibility(trimmed) {
+            logToFile("✅ Inserted via Accessibility API")
             return .inserted
+        } else {
+            logToFile("⚠️ Accessibility insert failed, falling back to clipboard paste")
         }
 
         pasteViaClipboard(trimmed)
@@ -51,6 +56,7 @@ class TextInsertionService {
 
         // Save current clipboard content
         let previousContents = pasteboard.string(forType: .string)
+        logToFile("📋 Clipboard paste start (saved existing clipboard: \(previousContents != nil))")
 
         // Set new text to clipboard
         pasteboard.clearContents()
@@ -59,6 +65,7 @@ class TextInsertionService {
         // Small delay to ensure pasteboard is updated
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
             // Simulate Cmd+V paste
+            logToFile("⌨️ Simulating Cmd+V")
             self?.simulatePaste()
 
             // Restore previous clipboard content after paste completes
@@ -66,6 +73,9 @@ class TextInsertionService {
                 if let previous = previousContents {
                     pasteboard.clearContents()
                     pasteboard.setString(previous, forType: .string)
+                    logToFile("📋 Clipboard restored to previous content")
+                } else {
+                    logToFile("📋 Clipboard left as inserted text (no previous content)")
                 }
             }
         }

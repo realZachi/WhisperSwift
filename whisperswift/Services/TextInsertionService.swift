@@ -169,25 +169,40 @@ class TextInsertionService {
             kAXTextAreaRole as String,
             kAXComboBoxRole as String,
             "AXSearchField",
-            "AXWebArea", // Web content areas
         ]
 
+        let isEditable = isAttributeTrue(focused, attribute: "AXEditable")
+        let supportsSelectedText = isAttributeSettable(focused, attribute: kAXSelectedTextAttribute)
+        let supportsValue = isAttributeSettable(focused, attribute: kAXValueAttribute)
+
+        if roleString == "AXWebArea" {
+            return isEditable || supportsSelectedText
+        }
+
         if textRoles.contains(roleString) {
+            return isEditable || supportsSelectedText || supportsValue
+        }
+
+        if isEditable && (supportsSelectedText || supportsValue) {
             return true
         }
 
-        // Check if element supports text insertion via selected text attribute
-        var settableAttrs: CFArray?
-        if AXUIElementCopyActionNames(focused, &settableAttrs) == .success {
-            // Element has actions, might be editable
-        }
+        return false
+    }
 
-        // Try to check if kAXSelectedTextAttribute is writable
+    private func isAttributeSettable(_ element: AXUIElement, attribute: String) -> Bool {
         var isSettable: DarwinBoolean = false
-        if AXUIElementIsAttributeSettable(focused, kAXSelectedTextAttribute as CFString, &isSettable) == .success {
-            return isSettable.boolValue
-        }
+        return AXUIElementIsAttributeSettable(element, attribute as CFString, &isSettable) == .success && isSettable.boolValue
+    }
 
+    private func isAttributeTrue(_ element: AXUIElement, attribute: String) -> Bool {
+        guard let value = getAttributeValue(element, attribute: attribute) else { return false }
+        if let boolValue = value as? Bool {
+            return boolValue
+        }
+        if let number = value as? NSNumber {
+            return number.boolValue
+        }
         return false
     }
 

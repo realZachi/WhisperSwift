@@ -177,21 +177,16 @@ private struct SavedToClipboardIndicator: View {
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(.green)
 
-                Text("Saved to clipboard")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.primary)
-            }
-
-            Text("⌘⌃V to paste")
-                .font(.system(size: 11, weight: .regular))
-                .foregroundStyle(.secondary)
-
-            Text(text.prefix(50) + (text.count > 50 ? "..." : ""))
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+            Text("Saved to clipboard")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.primary)
         }
+
+        Text("Press ⌘⌃V to paste")
+            .font(.system(size: 11, weight: .regular))
+            .foregroundStyle(.secondary)
     }
+}
 }
 
 // MARK: - Recording Dot

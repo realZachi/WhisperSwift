@@ -1,6 +1,6 @@
 //
 //  SettingsView.swift
-//  localwhisper
+//  whisperswift
 //
 //  Created by Mahmoud Ali Khan on 14.01.26.
 //
@@ -162,7 +162,7 @@ struct AboutView: View {
                 .font(.system(size: 64))
                 .foregroundColor(.accentColor)
 
-            Text("LocalWhisper")
+            Text("whisperswift")
                 .font(.title)
                 .fontWeight(.bold)
 

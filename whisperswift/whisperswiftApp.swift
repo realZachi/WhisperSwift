@@ -1,6 +1,6 @@
 //
-//  localwhisperApp.swift
-//  localwhisper
+//  whisperswiftApp.swift
+//  whisperswift
 //
 //  Created by Mahmoud Ali Khan on 14.01.26.
 //
@@ -8,7 +8,7 @@
 import SwiftUI
 
 @main
-struct LocalWhisperApp: App {
+struct WhisperSwiftApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {

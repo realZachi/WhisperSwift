@@ -1,6 +1,6 @@
 //
 //  ContextService.swift
-//  localwhisper
+//  whisperswift
 //
 //  Created by Mahmoud Ali Khan on 14.01.26.
 //

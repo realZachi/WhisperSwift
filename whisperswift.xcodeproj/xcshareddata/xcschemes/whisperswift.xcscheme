@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier="primary"
                BlueprintIdentifier="A5D93BAF2F18074D00D6F72F"
-               BuildableName="localwhisper.app"
-               BlueprintName="localwhisper"
-               ReferencedContainer="container:localwhisper.xcodeproj">
+               BuildableName="whisperswift.app"
+               BlueprintName="whisperswift"
+               ReferencedContainer="container:whisperswift.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -44,9 +44,9 @@
          <BuildableReference
             BuildableIdentifier="primary"
             BlueprintIdentifier="A5D93BAF2F18074D00D6F72F"
-            BuildableName="localwhisper.app"
-            BlueprintName="localwhisper"
-            ReferencedContainer="container:localwhisper.xcodeproj">
+            BuildableName="whisperswift.app"
+            BlueprintName="whisperswift"
+            ReferencedContainer="container:whisperswift.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -61,9 +61,9 @@
          <BuildableReference
             BuildableIdentifier="primary"
             BlueprintIdentifier="A5D93BAF2F18074D00D6F72F"
-            BuildableName="localwhisper.app"
-            BlueprintName="localwhisper"
-            ReferencedContainer="container:localwhisper.xcodeproj">
+            BuildableName="whisperswift.app"
+            BlueprintName="whisperswift"
+            ReferencedContainer="container:whisperswift.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

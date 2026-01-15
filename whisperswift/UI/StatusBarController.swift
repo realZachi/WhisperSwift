@@ -1,6 +1,6 @@
 //
 //  StatusBarController.swift
-//  localwhisper
+//  whisperswift
 //
 //  Created by Mahmoud Ali Khan on 14.01.26.
 //
@@ -72,7 +72,7 @@ class StatusBarController {
         menu.addItem(NSMenuItem.separator())
 
         // Quit
-        let quitItem = NSMenuItem(title: "Quit LocalWhisper", action: #selector(quit), keyEquivalent: "q")
+        let quitItem = NSMenuItem(title: "Quit whisperswift", action: #selector(quit), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
 

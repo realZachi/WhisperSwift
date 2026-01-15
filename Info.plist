@@ -7,10 +7,10 @@
     <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 
     <key>CFBundleName</key>
-    <string>LocalWhisper</string>
+    <string>whisperswift</string>
 
     <key>CFBundleDisplayName</key>
-    <string>LocalWhisper</string>
+    <string>whisperswift</string>
 
     <!-- Menu bar app - no dock icon -->
     <key>LSUIElement</key>
@@ -18,10 +18,10 @@
 
 	<!-- Microphone permission -->
 	<key>NSMicrophoneUsageDescription</key>
-	<string>LocalWhisper needs microphone access to record audio for Groq transcription</string>
+	<string>whisperswift needs microphone access to record audio for Groq transcription</string>
 
     <!-- Accessibility permission hint -->
     <key>NSAppleEventsUsageDescription</key>
-    <string>LocalWhisper needs accessibility access to insert transcribed text</string>
+    <string>whisperswift needs accessibility access to insert transcribed text</string>
 </dict>
 </plist>

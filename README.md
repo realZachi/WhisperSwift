@@ -1,4 +1,4 @@
-# LocalWhisper
+# whisperswift
 
 A native macOS menu bar application for lightning-fast speech-to-text transcription using the Groq API. Hold a hotkey, speak, release—your words instantly appear in any text field.
 
@@ -62,22 +62,22 @@ A native macOS menu bar application for lightning-fast speech-to-text transcript
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/localwhisper.git
-cd localwhisper
+git clone https://github.com/yourusername/whisperswift.git
+cd whisperswift
 
 # Open in Xcode
-open localwhisper.xcodeproj
+open whisperswift.xcodeproj
 
 # Or build from command line
-xcodebuild -project localwhisper.xcodeproj -scheme localwhisper -configuration Release build
+xcodebuild -project whisperswift.xcodeproj -scheme whisperswift -configuration Release build
 ```
 
 ### Option 2: Download Release
-Download the latest `.app` from the [Releases](https://github.com/yourusername/localwhisper/releases) page.
+Download the latest `.app` from the [Releases](https://github.com/yourusername/whisperswift/releases) page.
 
 ## Setup
 
-1. **Launch LocalWhisper** — it will appear in your menu bar
+1. **Launch whisperswift** — it will appear in your menu bar
 2. **Grant permissions** when prompted:
    - **Microphone**: Required to capture your voice
    - **Accessibility**: Required for global hotkeys and direct text insertion
@@ -98,7 +98,7 @@ Download the latest `.app` from the [Releases](https://github.com/yourusername/l
 
 ## Permissions
 
-LocalWhisper requires two system permissions:
+whisperswift requires two system permissions:
 
 ### Microphone Access
 Needed to capture your voice input. The app will prompt you on first launch.
@@ -166,7 +166,7 @@ Groq API pricing is approximately **$0.04 per hour** of audio processed ($4 per 
 3. Try adjusting the language setting to match your speech
 
 ### Logs
-Debug logs are written to `/tmp/localwhisper.log` for troubleshooting.
+Debug logs are written to `/tmp/whisperswift.log` for troubleshooting.
 
 ## License
 

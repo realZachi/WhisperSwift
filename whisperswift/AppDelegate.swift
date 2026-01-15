@@ -1,6 +1,6 @@
 //
 //  AppDelegate.swift
-//  localwhisper
+//  whisperswift
 //
 //  Created by Mahmoud Ali Khan on 14.01.26.
 //
@@ -9,7 +9,7 @@ import Cocoa
 import UserNotifications
 
 nonisolated func logToFile(_ message: String) {
-    let logFile = "/tmp/localwhisper.log"
+    let logFile = "/tmp/whisperswift.log"
     let timestamp = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium)
     let logMessage = "[\(timestamp)] \(message)\n"
     guard let data = logMessage.data(using: .utf8) else { return }
@@ -109,7 +109,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         )
 
-        logToFile("✅ LocalWhisper initialized successfully")
+        logToFile("✅ whisperswift initialized successfully")
     }
 
     private func handleHotkeyDown() async {

@@ -7,7 +7,6 @@
 
 import Foundation
 import Accelerate
-import CoreML
 import WhisperKit
 
 actor WhisperService {
@@ -82,19 +81,10 @@ actor WhisperService {
     }
 
     private func loadModel(from path: String) async throws {
-        let computeOptions = ModelComputeOptions(
-            melCompute: .cpuAndGPU,
-            audioEncoderCompute: .cpuAndGPU,
-            textDecoderCompute: .cpuAndNeuralEngine,
-            prefillCompute: .cpuAndGPU
-        )
-
         let config = WhisperKitConfig(
             model: modelName,
             modelFolder: path,
-            computeOptions: computeOptions,
             verbose: false,
-            prewarm: true,
             load: true,
             download: false
         )
@@ -160,9 +150,11 @@ actor WhisperService {
             task: .transcribe,
             language: "de",
             temperature: 0.0,
+            temperatureFallbackCount: 1,
             skipSpecialTokens: true,
             withoutTimestamps: true,
             wordTimestamps: false,
+            firstTokenLogProbThreshold: nil,
             concurrentWorkerCount: 4,
             chunkingStrategy: .vad
         )
@@ -174,12 +166,16 @@ actor WhisperService {
         let transcription = results.map { $0.text }.joined()
         await log("🤖 Raw transcription: '\(transcription)'")
 
-        let timings = pipe.currentTimings
+        let audioSeconds = results.map(\.timings.inputAudioSeconds).reduce(0, +)
+        let pipelineSeconds = results.map(\.timings.fullPipeline).reduce(0, +)
+        let maxFallbacks = results.map(\.timings.totalDecodingFallbacks).max() ?? 0
+        let speed = audioSeconds > 0 ? (audioSeconds / wallClockSeconds) : 0
         await log("""
-        ⏱️ WhisperKit timings - audio: \(String(format: "%.2f", timings.inputAudioSeconds))s, \
-        pipeline: \(String(format: "%.2f", timings.fullPipeline))s, \
+        ⏱️ WhisperKit timings - chunks: \(results.count), audio: \(String(format: "%.2f", audioSeconds))s, \
+        pipeline(sum): \(String(format: "%.2f", pipelineSeconds))s, \
         wall: \(String(format: "%.2f", wallClockSeconds))s, \
-        speed: \(String(format: "%.2f", timings.speedFactor))x
+        speed: \(String(format: "%.2f", speed))x, \
+        fallbacks(max): \(Int(maxFallbacks))
         """)
 
         // Clean up the transcription

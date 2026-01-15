@@ -12,6 +12,7 @@ class TextInsertionService {
     enum InsertionOutcome {
         case inserted
         case copiedToClipboard
+        case noFocusedTarget
         case empty
     }
 
@@ -53,6 +54,13 @@ class TextInsertionService {
             promptAccessibilityIfNeeded()
             logToFile("⚠️ Accessibility not granted - copied transcription to clipboard")
             return .copiedToClipboard
+        }
+
+        // Check if there's a focused text element
+        if !hasFocusedTextElement() {
+            copyToClipboard(trimmed)
+            logToFile("⚠️ No focused text element - saved to clipboard for manual paste")
+            return .noFocusedTarget
         }
 
         if let bundleId = frontmostBundleId, accessibilityInsertBlacklist.contains(bundleId) {
@@ -140,6 +148,47 @@ class TextInsertionService {
 
     private func frontmostBundleIdentifier() -> String? {
         NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+    }
+
+    /// Check if there's a focused text element that can receive text
+    private func hasFocusedTextElement() -> Bool {
+        guard let focused = getFocusedElement() else {
+            return false
+        }
+
+        // Check if element has text-related attributes
+        var role: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(focused, kAXRoleAttribute as CFString, &role) == .success,
+              let roleString = role as? String else {
+            return false
+        }
+
+        // Common text-accepting roles
+        let textRoles: Set<String> = [
+            kAXTextFieldRole as String,
+            kAXTextAreaRole as String,
+            kAXComboBoxRole as String,
+            "AXSearchField",
+            "AXWebArea", // Web content areas
+        ]
+
+        if textRoles.contains(roleString) {
+            return true
+        }
+
+        // Check if element supports text insertion via selected text attribute
+        var settableAttrs: CFArray?
+        if AXUIElementCopyActionNames(focused, &settableAttrs) == .success {
+            // Element has actions, might be editable
+        }
+
+        // Try to check if kAXSelectedTextAttribute is writable
+        var isSettable: DarwinBoolean = false
+        if AXUIElementIsAttributeSettable(focused, kAXSelectedTextAttribute as CFString, &isSettable) == .success {
+            return isSettable.boolValue
+        }
+
+        return false
     }
 
 }

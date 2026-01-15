@@ -18,8 +18,8 @@ class RecordingPillController {
     let audioMonitor = AudioLevelMonitor()
     let stateManager = RecordingPillStateManager()
 
-    private let panelWidth: CGFloat = 180
-    private let panelHeight: CGFloat = 60
+    private let panelWidth: CGFloat = 280
+    private let panelHeight: CGFloat = 90
 
     init() {
         setupPanel()
@@ -79,6 +79,13 @@ class RecordingPillController {
             self?.stateManager.state = .processing
         }
         logToFile("Transitioned to processing state")
+    }
+
+    func transitionToSaved(text: String) {
+        DispatchQueue.main.async { [weak self] in
+            self?.stateManager.state = .savedToClipboard(text: text)
+        }
+        logToFile("Transitioned to saved state")
     }
 
     func hide() {

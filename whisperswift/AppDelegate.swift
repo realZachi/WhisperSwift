@@ -31,6 +31,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var statusBarController: StatusBarController?
     private var hotkeyManager: HotkeyManager?
+    private var manualPasteMonitor: Any?
     private var groqService: GroqTranscriptionService?
     private var audioRecorder: AudioRecorder?
     private var textInsertionService: TextInsertionService?
@@ -42,6 +43,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var keyDownTimestamp: TimeInterval?
     private var lastTapEndTimestamp: TimeInterval?
     private var pendingStopWorkItem: DispatchWorkItem?
+    private var lastTranscription: String?
+    private var pillHideWorkItem: DispatchWorkItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         logToFile("🚀 App started")
@@ -109,7 +112,83 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         )
 
+        // Setup manual paste hotkey (Cmd+Ctrl+V)
+        setupManualPasteHotkey()
+
         logToFile("✅ whisperswift initialized successfully")
+    }
+
+    private func setupManualPasteHotkey() {
+        // Global monitor for Cmd+Ctrl+V
+        manualPasteMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            // Check for Cmd+Ctrl+V (keyCode 9 = V)
+            if event.keyCode == 9 &&
+               event.modifierFlags.contains(.command) &&
+               event.modifierFlags.contains(.control) {
+                Task { @MainActor in
+                    self?.handleManualPaste()
+                }
+            }
+        }
+
+        // Also add local monitor for when app window is focused
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            if event.keyCode == 9 &&
+               event.modifierFlags.contains(.command) &&
+               event.modifierFlags.contains(.control) {
+                Task { @MainActor in
+                    self?.handleManualPaste()
+                }
+                return nil // Consume the event
+            }
+            return event
+        }
+
+        logToFile("🎹 Manual paste hotkey (⌘⌃V) registered")
+    }
+
+    private func handleManualPaste() {
+        guard let textInsertionService = textInsertionService,
+              let lastText = lastTranscription else {
+            logToFile("⚠️ No transcription available for manual paste")
+            return
+        }
+
+        logToFile("📋 Manual paste triggered for: \(lastText.prefix(50))...")
+
+        // Hide the pill if it's showing
+        pillHideWorkItem?.cancel()
+        recordingPillController?.hide()
+
+        // Try to insert the saved transcription
+        let outcome = textInsertionService.insertText(lastText)
+        switch outcome {
+        case .inserted:
+            logToFile("✅ Manual paste successful")
+            lastTranscription = nil // Clear after successful paste
+        case .noFocusedTarget:
+            logToFile("⚠️ Still no focused target for manual paste")
+        case .copiedToClipboard:
+            logToFile("📋 Text still in clipboard")
+        case .empty:
+            logToFile("⚠️ Empty transcription")
+        }
+    }
+
+    private func showSavedNotification(text: String) {
+        // Transition pill to saved state
+        recordingPillController?.transitionToSaved(text: text)
+        statusBarController?.state = .idle
+        isProcessing = false
+
+        // Auto-hide after 5 seconds
+        pillHideWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.recordingPillController?.hide()
+            self?.lastTranscription = nil
+        }
+        pillHideWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0, execute: workItem)
     }
 
     private func handleHotkeyDown() async {
@@ -339,8 +418,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     switch outcome {
                     case .inserted:
                         logToFile("✅ Text inserted")
+                        self.lastTranscription = nil
                     case .copiedToClipboard:
                         logToFile("📋 Text copied to clipboard (enable Accessibility for auto-insert)")
+                        self.lastTranscription = contextualized
+                    case .noFocusedTarget:
+                        logToFile("📋 No focused target - saved to clipboard, showing notification")
+                        self.lastTranscription = contextualized
+                        self.showSavedNotification(text: contextualized)
+                        return // Don't hide the pill immediately
                     case .empty:
                         logToFile("⚠️ Empty transcription result")
                     }
@@ -363,6 +449,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        if let monitor = manualPasteMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
         hotkeyManager = nil
         audioRecorder = nil
         groqService = nil

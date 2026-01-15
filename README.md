@@ -29,6 +29,8 @@ A native macOS menu bar application for lightning-fast speech-to-text transcript
 - **Accessibility API integration**: Direct text insertion at cursor position (preferred method)
 - **Intelligent fallback**: Automatic clipboard-based insertion for apps that need it
 - **Application awareness**: Maintains a blacklist of apps requiring special handling (VS Code, browsers, etc.)
+- **No-target detection**: When no text field is focused, transcription is saved to clipboard with visual notification
+- **Manual paste shortcut**: Use `⌘⌃V` (Cmd+Ctrl+V) to insert the last transcription anywhere
 
 ## How It Works
 
@@ -96,6 +98,14 @@ Download the latest `.app` from the [Releases](https://github.com/yourusername/w
 | Language | `de` | ISO language code for transcription |
 | Play Sounds | On | Audio feedback during recording |
 
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| Hold Fn/Option/Control | Record audio (push-to-talk) |
+| Double-tap Fn/Option/Control | Toggle hands-free recording mode |
+| `⌘⌃V` (Cmd+Ctrl+V) | Paste last transcription (when no text field was focused) |
+
 ## Permissions
 
 whisperswift requires two system permissions:
@@ -154,6 +164,7 @@ Groq API pricing is approximately **$0.04 per hour** of audio processed ($4 per 
 ### Text isn't being inserted
 1. Check that Accessibility permission is granted (Settings → Permissions)
 2. For VS Code/browsers, text is copied to clipboard—use Cmd+V to paste
+3. If no text field is focused, a notification appears showing the transcription was saved. Use `⌘⌃V` (Cmd+Ctrl+V) to paste it later
 
 ### Hotkey not detected
 1. Ensure Accessibility permission is enabled

@@ -41,6 +41,7 @@ final class AudioLevelMonitor {
 enum RecordingPillState: Equatable {
     case recording
     case processing
+    case savedToClipboard(text: String)
 }
 
 // MARK: - Main View
@@ -76,10 +77,13 @@ struct RecordingPillView: View {
     private var liquidGlassContent: some View {
         GlassEffectContainer {
             HStack(spacing: 14) {
-                if state == .recording {
+                switch state {
+                case .recording:
                     recordingIndicator
-                } else {
+                case .processing:
                     processingIndicator
+                case .savedToClipboard(let text):
+                    SavedToClipboardIndicator(text: text)
                 }
             }
             .padding(.horizontal, 20)
@@ -117,10 +121,13 @@ struct RecordingPillView: View {
 
             // Content
             HStack(spacing: 14) {
-                if state == .recording {
+                switch state {
+                case .recording:
                     recordingIndicator
-                } else {
+                case .processing:
                     processingIndicator
+                case .savedToClipboard(let text):
+                    SavedToClipboardIndicator(text: text)
                 }
             }
             .padding(.horizontal, 20)
@@ -153,6 +160,36 @@ struct RecordingPillView: View {
 
             // Three animated dots
             ProcessingDotsView()
+        }
+    }
+
+}
+
+// MARK: - Saved to Clipboard Indicator
+
+private struct SavedToClipboardIndicator: View {
+    var text: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Image(systemName: "doc.on.clipboard.fill")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(.green)
+
+                Text("Saved to clipboard")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.primary)
+            }
+
+            Text("⌘⌃V to paste")
+                .font(.system(size: 11, weight: .regular))
+                .foregroundStyle(.secondary)
+
+            Text(text.prefix(50) + (text.count > 50 ? "..." : ""))
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
         }
     }
 }

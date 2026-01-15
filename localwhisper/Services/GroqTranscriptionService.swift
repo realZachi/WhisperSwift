@@ -19,36 +19,13 @@ actor GroqTranscriptionService {
     private let cleanupModel = "moonshotai/kimi-k2-instruct-0905"
 
     private let cleanupSystemPrompt = #"""
-You are a transcript editor. Your task is to convert raw speech transcriptions into clean, readable text while preserving the speaker's original meaning, language, and style.
+You are a transcript cleaner. Remove disfluencies from raw speech transcriptions.
 
-## What to remove:
-- False starts and self-corrections (keep only the final intended version)
-- Filler words (um, uh, äh, euh, etto, etc.)
-- Stutters and repetitions
-- Verbal backtracking ("no wait", "I mean", "actually no", "sorry")
-- Abandoned sentence fragments that were restarted
+Remove: false starts, self-corrections (keep final version only), filler words (um, uh, äh, euh, hmm), stutters, repetitions, verbal backtracking ("no wait", "I mean"), abandoned fragments.
 
-## What to preserve absolutely:
-- The original language of the transcript
-- The speaker's exact vocabulary and word choices
-- Original spelling, capitalization, and formatting of terms
-- Sentence structure — do not split or merge sentences
-- Tone and register (formal/informal, mixed languages, slang)
-- All substantive content and meaning
-- Code-switching and technical terms exactly as spoken
+Preserve exactly: original language, vocabulary, spelling, capitalization, sentence structure, tone, technical terms.
 
-## Strict rules:
-1. NEVER paraphrase, summarize, or rewrite
-2. NEVER change words to synonyms or "better" alternatives
-3. NEVER correct grammar, spelling, or capitalization choices
-4. NEVER add words not spoken (no "I will", "the", etc.)
-5. NEVER change perspective or restructure for "proper" writing
-6. ONLY delete — never transform or replace
-
-Your job is deletion, not editing. If the speaker said "fix das", output "fix das" — not "behebe das Problem".
-
-## Output:
-Return only the cleaned transcript. No commentary, no explanations, no quotation marks.
+Rules: ONLY delete — never paraphrase, transform, add words, or correct grammar. If speaker said "fix das", keep "fix das".
 """#
 
     init() {
@@ -136,6 +113,25 @@ Return only the cleaned transcript. No commentary, no explanations, no quotation
             GroqChatMessage(role: "user", content: transcript)
         ]
 
+        let responseFormat = GroqResponseFormat(
+            type: "json_schema",
+            jsonSchema: GroqJsonSchema(
+                name: "cleaned_transcript",
+                strict: true,
+                schema: GroqSchemaDefinition(
+                    type: "object",
+                    properties: [
+                        "cleaned_text": GroqSchemaProperty(
+                            type: "string",
+                            description: "The cleaned transcript text with disfluencies removed"
+                        )
+                    ],
+                    required: ["cleaned_text"],
+                    additionalProperties: false
+                )
+            )
+        )
+
         let payload = GroqChatCompletionRequest(
             messages: messages,
             model: cleanupModel,
@@ -143,7 +139,8 @@ Return only the cleaned transcript. No commentary, no explanations, no quotation
             maxCompletionTokens: 4096,
             topP: 1,
             stream: false,
-            stop: nil
+            stop: nil,
+            responseFormat: responseFormat
         )
 
         let body = try await MainActor.run {
@@ -172,11 +169,19 @@ Return only the cleaned transcript. No commentary, no explanations, no quotation
             throw GroqTranscriptionError.invalidResponse
         }
 
+        // Parse the structured JSON response
+        guard let jsonData = content.data(using: .utf8) else {
+            throw GroqTranscriptionError.invalidResponse
+        }
+        let cleanedResponse = try await MainActor.run {
+            try JSONDecoder().decode(CleanedTranscriptResponse.self, from: jsonData)
+        }
+
         await MainActor.run {
             logToFile("✅ Groq cleanup received")
         }
 
-        return content.trimmingCharacters(in: .whitespacesAndNewlines)
+        return cleanedResponse.cleanedText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func resolveApiKey() -> String? {
@@ -301,6 +306,7 @@ private struct GroqChatCompletionRequest: Encodable {
     let topP: Double
     let stream: Bool
     let stop: String?
+    let responseFormat: GroqResponseFormat?
 
     enum CodingKeys: String, CodingKey {
         case messages
@@ -310,6 +316,43 @@ private struct GroqChatCompletionRequest: Encodable {
         case topP = "top_p"
         case stream
         case stop
+        case responseFormat = "response_format"
+    }
+}
+
+private struct GroqResponseFormat: Encodable {
+    let type: String
+    let jsonSchema: GroqJsonSchema
+
+    enum CodingKeys: String, CodingKey {
+        case type
+        case jsonSchema = "json_schema"
+    }
+}
+
+private struct GroqJsonSchema: Encodable {
+    let name: String
+    let strict: Bool
+    let schema: GroqSchemaDefinition
+}
+
+private struct GroqSchemaDefinition: Encodable {
+    let type: String
+    let properties: [String: GroqSchemaProperty]
+    let required: [String]
+    let additionalProperties: Bool
+}
+
+private struct GroqSchemaProperty: Encodable {
+    let type: String
+    let description: String
+}
+
+private struct CleanedTranscriptResponse: Decodable {
+    let cleanedText: String
+
+    enum CodingKeys: String, CodingKey {
+        case cleanedText = "cleaned_text"
     }
 }
 

@@ -489,7 +489,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             if !transcription.isEmpty {
                 logToFile("✅ Transcription: \(transcription)")
 
-                // Capture snapshot BEFORE cleanup to determine the target app profile
                 let snapshot = contextService?.captureSnapshot()
                 let profile = textCleanupContextResolver?.resolveProfile(snapshot: snapshot) ?? .default
 
@@ -503,24 +502,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 do {
                     cleaned = try await groqService.cleanTranscription(transcription, profile: profile)
                     if cleaned.isEmpty {
-                        logToFile("⏭️ Cleanup returned empty - no meaningful content")
+                        logToFile("⏭️ Cleanup returned empty")
                     } else if cleaned != transcription {
                         logToFile("✅ Cleaned transcription: \(cleaned)")
                     }
                 } catch {
                     logToFile("⚠️ Cleanup failed, using raw transcription: \(error)")
                     cleaned = transcription
-                }
-
-                // Skip insertion if cleaned text is empty
-                guard !cleaned.isEmpty else {
-                    logToFile("⚠️ Empty cleaned result, skipping insertion")
-                    isProcessing = false
-                    await MainActor.run {
-                        statusBarController?.state = .idle
-                        recordingPillController?.hide()
-                    }
-                    return
                 }
 
                 // Insert text into focused application

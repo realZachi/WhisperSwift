@@ -99,14 +99,6 @@ actor GroqTranscriptionService {
     }
 
     func cleanTranscription(_ transcript: String, profile: TextCleanupProfile = .default) async throws -> String {
-        // Early return if transcript is meaningless (empty, only fillers/punctuation)
-        guard isMeaningfulTranscript(transcript) else {
-            await MainActor.run {
-                logToFile("⏭️ Skipping cleanup - transcript has no meaningful content")
-            }
-            return ""
-        }
-
         guard let apiKey = resolveApiKey(), !apiKey.isEmpty else {
             throw GroqTranscriptionError.missingApiKey
         }
@@ -116,7 +108,6 @@ actor GroqTranscriptionService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
 
-        // Build messages with base prompt + optional formatting prompt
         var messages: [GroqChatMessage] = [
             GroqChatMessage(role: "system", content: TextCleanupPrompts.baseSystemPrompt)
         ]
@@ -181,7 +172,6 @@ actor GroqTranscriptionService {
             throw GroqTranscriptionError.invalidResponse
         }
 
-        // Parse the structured JSON response
         guard let jsonData = content.data(using: .utf8) else {
             throw GroqTranscriptionError.invalidResponse
         }
@@ -213,40 +203,6 @@ actor GroqTranscriptionService {
         let stored = UserDefaults.standard.string(forKey: languageDefaultsKey) ?? ""
         let trimmed = stored.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
-    }
-
-    /// Checks if the transcript contains meaningful content beyond fillers and punctuation.
-    private func isMeaningfulTranscript(_ text: String) -> Bool {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return false }
-
-        // Normalize: lowercase and remove diacritics
-        let folded = trimmed
-            .lowercased()
-            .folding(options: [.diacriticInsensitive, .widthInsensitive], locale: .current)
-
-        // Keep only alphanumeric characters and spaces; replace punctuation with spaces
-        let cleaned = folded.unicodeScalars.map { scalar -> Character in
-            if CharacterSet.alphanumerics.contains(scalar) || CharacterSet.whitespacesAndNewlines.contains(scalar) {
-                return Character(scalar)
-            }
-            return " "
-        }
-        let tokens = String(cleaned).split { $0.isWhitespace }.map(String.init)
-        guard !tokens.isEmpty else { return false }
-
-        // Common filler words across supported languages
-        let fillers: Set<String> = [
-            "um", "uh", "uhm", "ah", "eh",
-            "äh", "aeh", "ähm", "aehm",
-            "euh", "hm", "hmm", "mhm", "mm",
-            "ja", "ne", "nee", "so", "also",
-            "like", "you know", "well", "right",
-            "ok", "okay"
-        ]
-
-        // Return true if at least one token is NOT a filler
-        return tokens.contains { !fillers.contains($0) }
     }
 
     private func makeMultipartBody(

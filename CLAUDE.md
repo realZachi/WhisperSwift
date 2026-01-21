@@ -20,12 +20,16 @@ open whisperswift.xcodeproj
 xcodebuild -project whisperswift.xcodeproj -scheme whisperswift -configuration Debug build
 ```
 
-**WICHTIG**: Nach jeder Code-Änderung, die einen Build erfordert (Swift-Dateien, Ressourcen, Projekteinstellungen), MUSS automatisch gebaut werden mit:
+**IMPORTANT**: After every code change that requires a build (Swift files, resources, project settings), you MUST automatically build with:
 ```bash
 xcodebuild -project whisperswift.xcodeproj -scheme whisperswift -configuration Debug build
 ```
 
 No test target exists currently. If adding tests, use XCTest and place files under a `whisperswiftTests/` target.
+
+## Git Workflow
+
+**IMPORTANT**: When a new feature is requested, always create a new branch for that feature first (e.g., `git checkout -b feature/<short-name>`), and only then make code changes.
 
 ## DMG Release Build (Styled + Notarized)
 
@@ -155,6 +159,5 @@ whisperswift/
 
 - **Sandbox disabled**: Required for global hotkeys and accessibility API access
 - **Debug logging**: Writes to `/tmp/whisperswift.log`
-- **Default language**: German (default in UserDefaults, override in Settings)
 - **Entitlements**: Edit `whisperswift/whisperswift.entitlements` carefully when adding capabilities
 - **Network usage**: Active internet required; audio is sent to Groq for transcription

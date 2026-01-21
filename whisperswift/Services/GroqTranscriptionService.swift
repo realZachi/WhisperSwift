@@ -15,17 +15,7 @@ actor GroqTranscriptionService {
     private let languageDefaultsKey = "groqLanguage"
 
     private let defaultModel = "whisper-large-v3-turbo"
-    private let cleanupModel = "openai/gpt-oss-120b"
-
-    private let cleanupSystemPrompt = #"""
-You are a transcript cleaner. Remove disfluencies from raw speech transcriptions.
-
-Remove: false starts, self-corrections (keep final version only), filler words (um, uh, äh, euh, hmm), stutters, repetitions, verbal backtracking ("no wait", "I mean"), abandoned fragments.
-
-Preserve exactly: original language, vocabulary, spelling, capitalization, sentence structure, tone, technical terms.
-
-Rules: ONLY delete — never paraphrase, transform, add words, or correct grammar. If speaker said "fix das", keep "fix das".
-"""#
+    private let cleanupModel = "moonshotai/kimi-k2-instruct-0905"
 
     init() {
         guard let endpoint = URL(string: "https://api.groq.com/openai/v1/audio/transcriptions"),
@@ -108,7 +98,7 @@ Rules: ONLY delete — never paraphrase, transform, add words, or correct gramma
         return cleaned
     }
 
-    func cleanTranscription(_ transcript: String) async throws -> String {
+    func cleanTranscription(_ transcript: String, profile: TextCleanupProfile = .default) async throws -> String {
         guard let apiKey = resolveApiKey(), !apiKey.isEmpty else {
             throw GroqTranscriptionError.missingApiKey
         }
@@ -118,10 +108,13 @@ Rules: ONLY delete — never paraphrase, transform, add words, or correct gramma
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
 
-        let messages = [
-            GroqChatMessage(role: "system", content: cleanupSystemPrompt),
-            GroqChatMessage(role: "user", content: transcript)
+        var messages: [GroqChatMessage] = [
+            GroqChatMessage(role: "system", content: TextCleanupPrompts.baseSystemPrompt)
         ]
+        if let formattingPrompt = TextCleanupPrompts.formattingSystemPrompt(for: profile) {
+            messages.append(GroqChatMessage(role: "system", content: formattingPrompt))
+        }
+        messages.append(GroqChatMessage(role: "user", content: transcript))
 
         let responseFormat = GroqResponseFormat(
             type: "json_schema",
@@ -145,7 +138,7 @@ Rules: ONLY delete — never paraphrase, transform, add words, or correct gramma
         let payload = GroqChatCompletionRequest(
             messages: messages,
             model: cleanupModel,
-            temperature: 0.6,
+            temperature: 0.1,
             maxCompletionTokens: 4096,
             topP: 1,
             stream: false,
@@ -159,7 +152,7 @@ Rules: ONLY delete — never paraphrase, transform, add words, or correct gramma
         request.httpBody = body
 
         await MainActor.run {
-            logToFile("🌐 Sending transcript to Groq cleanup (model: \(cleanupModel))")
+            logToFile("🌐 Sending transcript to Groq cleanup (model: \(cleanupModel), profile: \(profile.rawValue))")
         }
 
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -179,7 +172,6 @@ Rules: ONLY delete — never paraphrase, transform, add words, or correct gramma
             throw GroqTranscriptionError.invalidResponse
         }
 
-        // Parse the structured JSON response
         guard let jsonData = content.data(using: .utf8) else {
             throw GroqTranscriptionError.invalidResponse
         }

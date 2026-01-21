@@ -15,7 +15,7 @@ actor GroqTranscriptionService {
     private let languageDefaultsKey = "groqLanguage"
 
     private let defaultModel = "whisper-large-v3-turbo"
-    private let cleanupModel = "moonshotai/kimi-k2-instruct-0905"
+    private let cleanupModel = "openai/gpt-oss-120b"
 
     private let cleanupSystemPrompt = #"""
 You are a transcript cleaner. Remove disfluencies from raw speech transcriptions.

@@ -38,6 +38,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var textInsertionService: TextInsertionService?
     private var recordingPillController: RecordingPillController?
     private var contextService: ContextService?
+    private var textCleanupContextResolver: TextCleanupContextResolver?
     private var isRecording = false
     private var isProcessing = false
     private var isLockedRecording = false
@@ -90,6 +91,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Initialize context service
         logToFile("🧠 Creating ContextService...")
         contextService = ContextService()
+
+        // Initialize text cleanup context resolver
+        logToFile("🧾 Creating TextCleanupContextResolver...")
+        textCleanupContextResolver = TextCleanupContextResolver()
 
         // Initialize recording pill overlay
         logToFile("💊 Creating RecordingPillController...")
@@ -484,10 +489,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             if !transcription.isEmpty {
                 logToFile("✅ Transcription: \(transcription)")
 
+                // Capture snapshot BEFORE cleanup to determine the target app profile
+                let snapshot = contextService?.captureSnapshot()
+                let profile = textCleanupContextResolver?.resolveProfile(snapshot: snapshot) ?? .default
+
+                if let snapshot {
+                    logToFile("🧾 Cleanup profile=\(profile.rawValue) bundleId=\(snapshot.bundleId ?? "unknown") app=\(snapshot.appName ?? "unknown")")
+                } else {
+                    logToFile("🧾 Cleanup profile=\(profile.rawValue) (no context snapshot)")
+                }
+
                 let cleaned: String
                 do {
-                    cleaned = try await groqService.cleanTranscription(transcription)
-                    if cleaned != transcription {
+                    cleaned = try await groqService.cleanTranscription(transcription, profile: profile)
+                    if cleaned.isEmpty {
+                        logToFile("⏭️ Cleanup returned empty - no meaningful content")
+                    } else if cleaned != transcription {
                         logToFile("✅ Cleaned transcription: \(cleaned)")
                     }
                 } catch {
@@ -495,9 +512,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     cleaned = transcription
                 }
 
+                // Skip insertion if cleaned text is empty
+                guard !cleaned.isEmpty else {
+                    logToFile("⚠️ Empty cleaned result, skipping insertion")
+                    isProcessing = false
+                    await MainActor.run {
+                        statusBarController?.state = .idle
+                        recordingPillController?.hide()
+                    }
+                    return
+                }
+
                 // Insert text into focused application
                 await MainActor.run {
-                    let snapshot = contextService?.captureSnapshot()
                     if let snapshot {
                         logToFile("🧠 Context app=\(snapshot.appName ?? "unknown") title=\(snapshot.windowTitle ?? "none") doc=\(snapshot.documentName ?? "none")")
                         let candidates = contextService?.candidateFilenames(snapshot: snapshot) ?? []

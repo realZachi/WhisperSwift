@@ -74,6 +74,9 @@ xcrun stapler staple "$DMG_FINAL"
 - No test target is present yet. If adding tests, use XCTest and place files under a `whisperswiftTests/` target.
 - Name test files `SomethingTests.swift` and test methods `testSomethingBehavior()`.
 
+## Git Workflow
+- When a new feature is requested, always create a new branch for that feature before making changes (e.g. `git checkout -b feature/<short-name>`).
+
 ## Commit & Pull Request Guidelines
 - Commit history uses short, imperative messages (e.g. "Fix build errors", "Add Groq API integration"). Keep subject lines concise.
 - PRs should describe user-visible changes, include reproduction steps, and mention permission impacts (microphone/accessibility) if relevant.

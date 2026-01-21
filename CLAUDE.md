@@ -27,6 +27,10 @@ xcodebuild -project whisperswift.xcodeproj -scheme whisperswift -configuration D
 
 No test target exists currently. If adding tests, use XCTest and place files under a `whisperswiftTests/` target.
 
+## Git Workflow
+
+**WICHTIG**: Wenn ein neues Feature angefragt wird, immer zuerst einen neuen Branch für dieses Feature erstellen (z.B. `git checkout -b feature/<kurzer-name>`), und erst dann Code ändern.
+
 ## DMG Release Build (Styled + Notarized)
 
 Use a fresh release derived data folder (avoids asset copy permission issues after icon changes).

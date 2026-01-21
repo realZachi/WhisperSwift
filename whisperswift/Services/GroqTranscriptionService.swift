@@ -15,7 +15,7 @@ actor GroqTranscriptionService {
     private let languageDefaultsKey = "groqLanguage"
 
     private let defaultModel = "whisper-large-v3-turbo"
-    private let cleanupModel = "openai/gpt-oss-120b"
+    private let cleanupModel = "moonshotai/kimi-k2-instruct-0905"
 
     init() {
         guard let endpoint = URL(string: "https://api.groq.com/openai/v1/audio/transcriptions"),

@@ -42,10 +42,24 @@ List formatting (always apply):
 
         case .email:
             return #"""
-Format as an email body:
-- Use sensible paragraphs with blank lines between them.
-- If a greeting or closing is recognizable in the text, treat as separate paragraphs (do not invent new words).
-- Apply list formatting for any enumerations (see list rules above).
+Format as an email body.
+
+CRITICAL: Preserve ALL sentences and content. NEVER delete sentences — only restructure whitespace and punctuation.
+
+Paragraph structure:
+- Use blank lines between logical sections.
+- Opening greeting: standalone paragraph.
+- Body text: keep all sentences, use paragraphs for readability.
+- Closing phrase (thanks, regards, etc.): standalone paragraph.
+- Signature/name: on its own line after the closing phrase.
+
+Structured data (key-value pairs):
+- When the speaker lists labeled fields followed by their values, format as:
+  Label: Value
+  Label: Value
+  (one item per line, colon after each label, NO bullets or numbers).
+
+Other enumerations: apply list formatting (see list rules above).
 """#
 
         case .chat:

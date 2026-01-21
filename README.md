@@ -15,7 +15,16 @@ A native macOS menu bar application for lightning-fast speech-to-text transcript
 - **Powered by Groq**: Uses Whisper Large v3 Turbo for accurate, near-instant transcription
 - **Blazing fast**: Groq's LPU inference runs Whisper at **220x realtime speed** — a 10-second recording transcribes in ~45ms
 - **Multi-language support**: Configure any language code supported by Whisper
-- **Smart cleanup**: Optional AI-powered cleanup using **Kimi K2** to remove filler words, false starts, and verbal stumbles while preserving your exact wording
+- **Smart cleanup**: AI-powered cleanup removes filler words, false starts, and verbal stumbles while preserving your exact wording
+- **Automatic list formatting**: Spoken ordinals ("first", "second", "erstens", "zweitens") are converted to proper numbered lists
+
+### App-Aware Formatting
+WhisperSwift automatically adapts text formatting based on the active application:
+- **Email clients** (Mail, Outlook, Spark, Gmail, etc.) — Proper email body formatting with paragraph structure and signature handling
+- **Chat apps** (Slack, Discord, WhatsApp, Teams, Telegram, etc.) — Compact message formatting without unnecessary line breaks
+- **Developer tools** (VS Code, JetBrains IDEs, Obsidian, Notion, etc.) — Markdown-compatible formatting with proper lists
+- **Document apps** (Pages, Word, Notes, etc.) — Clean prose with readable paragraphs
+- **Web app detection** — Recognizes web-based services (Gmail, GitHub, Linear, etc.) running in browsers
 
 ### Intelligent Context Awareness
 - **Filename recognition**: Automatically detects filenames from your active window or document
@@ -47,11 +56,13 @@ A native macOS menu bar application for lightning-fast speech-to-text transcript
        ↓
 5. Sent to Groq API for transcription
        ↓
-6. Optional: AI cleanup removes filler words
+6. AI cleanup removes filler words, formats lists
        ↓
-7. Context service applies filename corrections
+7. App-aware formatting adapts to active application
        ↓
-8. Text inserted into focused application
+8. Context service applies filename corrections
+       ↓
+9. Text inserted into focused application
 ```
 
 ## Prerequisites

@@ -1,0 +1,53 @@
+# Codecov Configuration for WhisperSwift
+# https://docs.codecov.io/docs/codecov-yaml
+
+codecov:
+  require_ci_to_pass: yes
+  notify:
+    wait_for_ci: yes
+
+coverage:
+  precision: 2
+  round: down
+  range: "60...100"
+
+  status:
+    project:
+      default:
+        target: 60%
+        threshold: 5%
+        if_ci_failed: error
+    patch:
+      default:
+        target: 60%
+        threshold: 5%
+        if_ci_failed: error
+
+parsers:
+  gcov:
+    branch_detection:
+      conditional: yes
+      loop: yes
+      method: no
+      macro: no
+
+comment:
+  layout: "reach,diff,flags,files,footer"
+  behavior: default
+  require_changes: no
+  require_base: no
+  require_head: yes
+
+ignore:
+  - "whisperswiftTests/**/*"
+  - "build/**/*"
+  - "**/Assets.xcassets/**/*"
+  - "**/*.xcodeproj/**/*"
+  - "**/Preview Content/**/*"
+
+flags:
+  unittests:
+    paths:
+      - whisperswift/
+    carryforward: true
+    after_n_builds: 1

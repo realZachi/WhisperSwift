@@ -1,0 +1,204 @@
+name: Documentation
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'whisperswift/**/*.swift'
+      - 'docs/**'
+      - 'scripts/generate-docs.sh'
+      - '.github/workflows/docs.yml'
+  # PRs don't need docs build - only deploy on main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-docs:
+    name: Build Documentation
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Install swift-doc
+        run: |
+          brew install swiftdocorg/formulae/swift-doc || true
+
+      - name: Generate API documentation
+        run: |
+          chmod +x scripts/generate-docs.sh
+          ./scripts/generate-docs.sh docs/api
+
+      - name: Prepare documentation site
+        run: |
+          # Create combined docs directory
+          mkdir -p docs-site
+
+          # Copy API docs
+          if [ -d "docs/api" ]; then
+            cp -r docs/api docs-site/api
+          fi
+
+          # Copy architecture docs
+          if [ -d "docs/architecture" ]; then
+            cp -r docs/architecture docs-site/architecture
+          fi
+
+          # Copy root docs
+          if [ -f "docs/ARCHITECTURE.md" ]; then
+            mkdir -p docs-site/architecture
+            cp docs/ARCHITECTURE.md docs-site/architecture/
+          fi
+
+          # Create main index
+          cat > docs-site/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>WhisperSwift Documentation</title>
+              <style>
+                  :root {
+                      --bg: #ffffff;
+                      --text: #1a1a1a;
+                      --link: #0066cc;
+                      --card-bg: #f8f9fa;
+                      --border: #e9ecef;
+                  }
+                  @media (prefers-color-scheme: dark) {
+                      :root {
+                          --bg: #1a1a1a;
+                          --text: #e0e0e0;
+                          --link: #66b3ff;
+                          --card-bg: #2d2d2d;
+                          --border: #404040;
+                      }
+                  }
+                  * { box-sizing: border-box; }
+                  body {
+                      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                      line-height: 1.6;
+                      margin: 0;
+                      padding: 2rem;
+                      background: var(--bg);
+                      color: var(--text);
+                  }
+                  .container {
+                      max-width: 800px;
+                      margin: 0 auto;
+                  }
+                  h1 {
+                      font-size: 2.5rem;
+                      margin-bottom: 0.5rem;
+                  }
+                  .subtitle {
+                      font-size: 1.2rem;
+                      color: #666;
+                      margin-bottom: 2rem;
+                  }
+                  .cards {
+                      display: grid;
+                      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                      gap: 1.5rem;
+                      margin-top: 2rem;
+                  }
+                  .card {
+                      background: var(--card-bg);
+                      border: 1px solid var(--border);
+                      border-radius: 12px;
+                      padding: 1.5rem;
+                      text-decoration: none;
+                      color: var(--text);
+                      transition: transform 0.2s, box-shadow 0.2s;
+                  }
+                  .card:hover {
+                      transform: translateY(-2px);
+                      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                  }
+                  .card h2 {
+                      margin: 0 0 0.5rem 0;
+                      color: var(--link);
+                  }
+                  .card p {
+                      margin: 0;
+                      font-size: 0.95rem;
+                  }
+                  .icon {
+                      font-size: 2rem;
+                      margin-bottom: 0.5rem;
+                  }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <h1>WhisperSwift</h1>
+                  <p class="subtitle">Native macOS speech-to-text transcription via Groq API</p>
+
+                  <div class="cards">
+                      <a href="api/index.html" class="card">
+                          <div class="icon">📚</div>
+                          <h2>API Reference</h2>
+                          <p>Detailed documentation of all services, classes, and methods.</p>
+                      </a>
+
+                      <a href="architecture/ARCHITECTURE.md" class="card">
+                          <div class="icon">🏗️</div>
+                          <h2>Architecture</h2>
+                          <p>System design, data flow diagrams, and component interactions.</p>
+                      </a>
+                  </div>
+              </div>
+          </body>
+          </html>
+          EOF
+
+      - name: Upload documentation artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation
+          path: docs-site/
+          retention-days: 30
+
+  deploy-docs:
+    name: Deploy to GitHub Pages
+    needs: build-docs
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Download documentation artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: documentation
+          path: docs-site
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload to GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs-site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

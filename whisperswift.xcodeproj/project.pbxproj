@@ -6,6 +6,16 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXContainerItemProxy section */
+		A5D93CC62F18074D00D6F72F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A5D93BA82F18074D00D6F72F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A5D93BAF2F18074D00D6F72F;
+			remoteInfo = whisperswift;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXCopyFilesBuildPhase section */
 		A5D93C3C2F180FF700D6F72F /* Embed Frameworks */ = {
 			isa = PBXCopyFilesBuildPhase;
@@ -21,6 +31,7 @@
 
 /* Begin PBXFileReference section */
 		A5D93BB02F18074D00D6F72F /* WhisperSwift.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WhisperSwift.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A5D93CC02F18074D00D6F72F /* whisperswiftTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = whisperswiftTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -29,10 +40,22 @@
 			path = whisperswift;
 			sourceTree = "<group>";
 		};
+		A5D93CC12F18074D00D6F72F /* whisperswiftTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = whisperswiftTests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		A5D93BAD2F18074D00D6F72F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A5D93CC22F18074D00D6F72F /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -46,6 +69,7 @@
 			isa = PBXGroup;
 			children = (
 				A5D93BB22F18074D00D6F72F /* whisperswift */,
+				A5D93CC12F18074D00D6F72F /* whisperswiftTests */,
 				A5D93BB12F18074D00D6F72F /* Products */,
 			);
 			sourceTree = "<group>";
@@ -54,6 +78,7 @@
 			isa = PBXGroup;
 			children = (
 				A5D93BB02F18074D00D6F72F /* WhisperSwift.app */,
+				A5D93CC02F18074D00D6F72F /* whisperswiftTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -84,6 +109,29 @@
 			productReference = A5D93BB02F18074D00D6F72F /* WhisperSwift.app */;
 			productType = "com.apple.product-type.application";
 		};
+		A5D93CC52F18074D00D6F72F /* whisperswiftTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A5D93CCA2F18074D00D6F72F /* Build configuration list for PBXNativeTarget "whisperswiftTests" */;
+			buildPhases = (
+				A5D93CC32F18074D00D6F72F /* Sources */,
+				A5D93CC22F18074D00D6F72F /* Frameworks */,
+				A5D93CC42F18074D00D6F72F /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A5D93CC72F18074D00D6F72F /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				A5D93CC12F18074D00D6F72F /* whisperswiftTests */,
+			);
+			name = whisperswiftTests;
+			packageProductDependencies = (
+			);
+			productName = whisperswiftTests;
+			productReference = A5D93CC02F18074D00D6F72F /* whisperswiftTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -96,6 +144,10 @@
 				TargetAttributes = {
 					A5D93BAF2F18074D00D6F72F = {
 						CreatedOnToolsVersion = 26.2;
+					};
+					A5D93CC52F18074D00D6F72F = {
+						CreatedOnToolsVersion = 26.2;
+						TestTargetID = A5D93BAF2F18074D00D6F72F;
 					};
 				};
 			};
@@ -116,12 +168,20 @@
 			projectRoot = "";
 			targets = (
 				A5D93BAF2F18074D00D6F72F /* whisperswift */,
+				A5D93CC52F18074D00D6F72F /* whisperswiftTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		A5D93BAE2F18074D00D6F72F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A5D93CC42F18074D00D6F72F /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -138,7 +198,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A5D93CC32F18074D00D6F72F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A5D93CC72F18074D00D6F72F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A5D93BAF2F18074D00D6F72F /* whisperswift */;
+			targetProxy = A5D93CC62F18074D00D6F72F /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		A5D93BB92F18074E00D6F72F /* Debug */ = {
@@ -284,6 +359,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = de.mahmoud.whisperswift.debug;
+				PRODUCT_MODULE_NAME = whisperswift;
 				PRODUCT_NAME = "WhisperSwift Debug";
 				REGISTER_APP_GROUPS = NO;
 				SUPPORTED_PLATFORMS = macosx;
@@ -319,6 +395,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = de.mahmoud.whisperswift;
+				PRODUCT_MODULE_NAME = whisperswift;
 				PRODUCT_NAME = WhisperSwift;
 				REGISTER_APP_GROUPS = NO;
 				SUPPORTED_PLATFORMS = macosx;
@@ -328,6 +405,48 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		A5D93CC82F18074D00D6F72F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SB5P8954QX;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = de.mahmoud.whisperswiftTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/WhisperSwift Debug.app/Contents/MacOS/WhisperSwift Debug";
+			};
+			name = Debug;
+		};
+		A5D93CC92F18074D00D6F72F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SB5P8954QX;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = de.mahmoud.whisperswiftTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/WhisperSwift.app/Contents/MacOS/WhisperSwift";
 			};
 			name = Release;
 		};
@@ -348,6 +467,15 @@
 			buildConfigurations = (
 				A5D93BBC2F18074E00D6F72F /* Debug */,
 				A5D93BBD2F18074E00D6F72F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A5D93CCA2F18074D00D6F72F /* Build configuration list for PBXNativeTarget "whisperswiftTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A5D93CC82F18074D00D6F72F /* Debug */,
+				A5D93CC92F18074D00D6F72F /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

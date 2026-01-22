@@ -61,3 +61,6 @@ localwhisper/Resources/models/*.bin
 
 # Local release notes (do not commit)
 .release.md
+
+# jscpd reports (generated locally)
+reports/

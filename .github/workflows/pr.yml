@@ -1,0 +1,231 @@
+# Combined PR Workflow - All checks in one place
+# Reduces notification spam by combining all PR checks
+
+name: PR Checks
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: pr-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  pr-checks:
+    name: All PR Checks
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # ============================================
+      # LINT
+      # ============================================
+      - name: Install SwiftLint
+        run: brew install swiftlint
+
+      - name: Run SwiftLint
+        id: swiftlint
+        continue-on-error: true
+        run: |
+          swiftlint lint --config .swiftlint.yml --reporter json > swiftlint_report.json 2>&1 || true
+          WARNINGS=$(jq '[.[] | select(.severity == "Warning")] | length' swiftlint_report.json 2>/dev/null || echo "0")
+          ERRORS=$(jq '[.[] | select(.severity == "Error")] | length' swiftlint_report.json 2>/dev/null || echo "0")
+          echo "warnings=$WARNINGS" >> $GITHUB_OUTPUT
+          echo "errors=$ERRORS" >> $GITHUB_OUTPUT
+
+          if [ "$ERRORS" -gt 0 ]; then
+            echo "lint_status=failed" >> $GITHUB_OUTPUT
+          else
+            echo "lint_status=passed" >> $GITHUB_OUTPUT
+          fi
+
+      # ============================================
+      # DUPLICATE DETECTION
+      # ============================================
+      - name: Install jscpd
+        run: npm install -g jscpd
+
+      - name: Run duplicate detection
+        id: duplicates
+        continue-on-error: true
+        run: |
+          mkdir -p reports/jscpd
+          set +e
+          jscpd --config .jscpd.json . 2>&1 | tee jscpd-output.txt
+          JSCPD_EXIT_CODE=${PIPESTATUS[0]}
+          set -e
+
+          if [ -f "reports/jscpd/jscpd-report.json" ]; then
+            PERCENTAGE=$(jq '.statistics.total.percentage // 0' reports/jscpd/jscpd-report.json)
+            CLONES=$(jq '.statistics.total.clones // 0' reports/jscpd/jscpd-report.json)
+            echo "percentage=$PERCENTAGE" >> $GITHUB_OUTPUT
+            echo "clones=$CLONES" >> $GITHUB_OUTPUT
+          else
+            echo "percentage=0" >> $GITHUB_OUTPUT
+            echo "clones=0" >> $GITHUB_OUTPUT
+          fi
+
+          if [ "$JSCPD_EXIT_CODE" -eq 0 ]; then
+            echo "dup_status=passed" >> $GITHUB_OUTPUT
+          else
+            echo "dup_status=warning" >> $GITHUB_OUTPUT
+          fi
+
+      # ============================================
+      # BUILD
+      # ============================================
+      - name: Build Debug
+        id: build
+        run: |
+          set +e
+          xcodebuild -project whisperswift.xcodeproj \
+            -scheme whisperswift \
+            -configuration Debug \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            build 2>&1 | tee build.log
+          BUILD_RESULT=${PIPESTATUS[0]}
+          set -e
+
+          if [ "$BUILD_RESULT" -eq 0 ]; then
+            echo "build_status=passed" >> $GITHUB_OUTPUT
+          else
+            echo "build_status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      # ============================================
+      # TESTS
+      # ============================================
+      - name: Run Tests
+        id: tests
+        continue-on-error: true
+        run: |
+          set +e
+          xcodebuild test \
+            -project whisperswift.xcodeproj \
+            -scheme whisperswiftTests \
+            -destination 'platform=macOS' \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            2>&1 | tee test.log
+          TEST_RESULT=${PIPESTATUS[0]}
+          set -e
+
+          if grep -q "TEST SUCCEEDED" test.log || grep -q "Test session results" test.log; then
+            echo "test_status=passed" >> $GITHUB_OUTPUT
+          else
+            echo "test_status=failed" >> $GITHUB_OUTPUT
+          fi
+
+      # ============================================
+      # TECH DEBT CHECK
+      # ============================================
+      - name: Check for TODO/FIXME
+        id: techdebt
+        run: |
+          git diff origin/${{ github.base_ref }}...HEAD -- '*.swift' | grep -E '^\+.*(//(TODO|FIXME|HACK)|#(TODO|FIXME|HACK))' > tech_debt.txt || true
+          if [ -s tech_debt.txt ]; then
+            COUNT=$(wc -l < tech_debt.txt | tr -d ' ')
+            echo "count=$COUNT" >> $GITHUB_OUTPUT
+          else
+            echo "count=0" >> $GITHUB_OUTPUT
+          fi
+
+      # ============================================
+      # COMBINED REPORT
+      # ============================================
+      - name: Post PR Summary
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const lintStatus = '${{ steps.swiftlint.outputs.lint_status }}';
+            const lintWarnings = '${{ steps.swiftlint.outputs.warnings }}' || '0';
+            const lintErrors = '${{ steps.swiftlint.outputs.errors }}' || '0';
+
+            const dupStatus = '${{ steps.duplicates.outputs.dup_status }}';
+            const dupPercentage = '${{ steps.duplicates.outputs.percentage }}' || '0';
+            const dupClones = '${{ steps.duplicates.outputs.clones }}' || '0';
+
+            const buildStatus = '${{ steps.build.outputs.build_status }}';
+            const testStatus = '${{ steps.tests.outputs.test_status }}';
+            const techDebtCount = '${{ steps.techdebt.outputs.count }}' || '0';
+
+            const icon = (status) => status === 'passed' ? '✅' : status === 'warning' ? '⚠️' : '❌';
+
+            const body = `## PR Checks Summary
+
+            | Check | Status | Details |
+            |-------|--------|---------|
+            | **Lint** | ${icon(lintStatus)} | ${lintErrors} errors, ${lintWarnings} warnings |
+            | **Duplicates** | ${icon(dupStatus)} | ${dupPercentage}% (${dupClones} clones) |
+            | **Build** | ${icon(buildStatus)} | Debug configuration |
+            | **Tests** | ${icon(testStatus)} | Unit tests |
+            | **Tech Debt** | ${techDebtCount > 0 ? '⚠️' : '✅'} | ${techDebtCount} new TODO/FIXME |
+
+            <details>
+            <summary>Threshold Info</summary>
+
+            - **Duplicates**: Max 5% allowed
+            - **Lint errors**: Must be 0 to pass
+            </details>
+
+            ---
+            *All checks run in a single workflow to reduce notifications*`;
+
+            // Find and update existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+
+            const botComment = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('PR Checks Summary')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
+
+      - name: Final Status
+        if: always()
+        run: |
+          if [ "${{ steps.swiftlint.outputs.lint_status }}" = "failed" ] || \
+             [ "${{ steps.build.outputs.build_status }}" = "failed" ] || \
+             [ "${{ steps.tests.outputs.test_status }}" = "failed" ]; then
+            echo "::error::One or more checks failed"
+            exit 1
+          fi

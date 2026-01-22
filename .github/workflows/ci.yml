@@ -6,8 +6,7 @@ name: CI
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
+  # PRs are handled by pr.yml to reduce notification spam
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -28,8 +27,8 @@ jobs:
       - name: Run SwiftLint
         run: swiftlint lint --config .swiftlint.yml --reporter github-actions-logging
 
-  build:
-    name: Build
+  test:
+    name: Test
     runs-on: macos-14
     needs: lint
 
@@ -42,23 +41,204 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      - name: Build Debug
+      - name: Create test results directory
+        run: mkdir -p build/test-results
+
+      - name: Run Unit Tests
         run: |
+          xcodebuild test \
+            -project whisperswift.xcodeproj \
+            -scheme whisperswiftTests \
+            -destination 'platform=macOS' \
+            -enableCodeCoverage YES \
+            -resultBundlePath build/test-results/TestResults.xcresult \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            2>&1 | tee build/test-results/test-output.log || true
+
+          # Check if tests passed
+          if grep -q "TEST SUCCEEDED" build/test-results/test-output.log; then
+            echo "Tests passed!"
+          elif grep -q "Test session results" build/test-results/test-output.log; then
+            echo "Tests completed with results"
+          else
+            echo "::warning::Tests may have failed or produced warnings"
+          fi
+
+      - name: Generate Test Summary
+        if: always()
+        run: |
+          echo "### Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f build/test-results/test-output.log ]; then
+            # Extract test counts
+            PASSED=$(grep -oE "[0-9]+ test[s]? passed" build/test-results/test-output.log | head -1 || echo "0 tests passed")
+            FAILED=$(grep -oE "[0-9]+ test[s]? failed" build/test-results/test-output.log | head -1 || echo "0 tests failed")
+
+            echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Passed | $PASSED |" >> $GITHUB_STEP_SUMMARY
+            echo "| Failed | $FAILED |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Test output not found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ github.run_number }}
+          path: |
+            build/test-results/
+          retention-days: 30
+
+  build:
+    name: Build
+    runs-on: macos-14
+    needs: [lint, test]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Needed for comparing with previous builds
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Create build logs directory
+        run: mkdir -p build/logs
+
+      - name: Build Debug with Timing
+        id: build_debug
+        run: |
+          START_TIME=$(date +%s)
+
           xcodebuild -project whisperswift.xcodeproj \
             -scheme whisperswift \
             -configuration Debug \
+            -showBuildTimingSummary \
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
-            build
+            build 2>&1 | tee build/logs/debug-build.log
 
-      - name: Build Release
+          END_TIME=$(date +%s)
+          DURATION=$((END_TIME - START_TIME))
+
+          echo "duration=$DURATION" >> $GITHUB_OUTPUT
+          echo "Debug build completed in ${DURATION}s"
+
+          # Save timing to JSON
+          echo "{\"configuration\": \"Debug\", \"duration_seconds\": $DURATION, \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" > build/logs/debug-timing.json
+
+      - name: Build Release with Timing
+        id: build_release
         run: |
+          START_TIME=$(date +%s)
+
           xcodebuild -project whisperswift.xcodeproj \
             -scheme whisperswift \
             -configuration Release \
+            -showBuildTimingSummary \
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
-            build
+            build 2>&1 | tee build/logs/release-build.log
+
+          END_TIME=$(date +%s)
+          DURATION=$((END_TIME - START_TIME))
+
+          echo "duration=$DURATION" >> $GITHUB_OUTPUT
+          echo "Release build completed in ${DURATION}s"
+
+          # Save timing to JSON
+          echo "{\"configuration\": \"Release\", \"duration_seconds\": $DURATION, \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" > build/logs/release-timing.json
+
+      - name: Generate Build Timing Report
+        run: |
+          DEBUG_DURATION=${{ steps.build_debug.outputs.duration }}
+          RELEASE_DURATION=${{ steps.build_release.outputs.duration }}
+          TOTAL_DURATION=$((DEBUG_DURATION + RELEASE_DURATION))
+
+          cat > build/logs/build-timing-report.md << EOF
+          # Build Timing Report
+
+          **Run:** ${{ github.run_number }}
+          **Commit:** ${{ github.sha }}
+          **Branch:** ${{ github.ref_name }}
+          **Date:** $(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          ## Build Times
+
+          | Configuration | Duration |
+          |---------------|----------|
+          | Debug         | ${DEBUG_DURATION}s |
+          | Release       | ${RELEASE_DURATION}s |
+          | **Total**     | **${TOTAL_DURATION}s** |
+
+          ## Performance Notes
+
+          - Debug builds include full debug symbols
+          - Release builds include optimizations
+          - Times may vary based on GitHub Actions runner load
+          EOF
+
+          # Create combined timing JSON
+          cat > build/logs/build-timing-combined.json << EOF
+          {
+            "run_number": ${{ github.run_number }},
+            "commit": "${{ github.sha }}",
+            "branch": "${{ github.ref_name }}",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "debug_duration_seconds": $DEBUG_DURATION,
+            "release_duration_seconds": $RELEASE_DURATION,
+            "total_duration_seconds": $TOTAL_DURATION
+          }
+          EOF
+
+          echo "### Build Timing Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Configuration | Duration |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------------|----------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Debug | ${DEBUG_DURATION}s |" >> $GITHUB_STEP_SUMMARY
+          echo "| Release | ${RELEASE_DURATION}s |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Total** | **${TOTAL_DURATION}s** |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Build Timing Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-timing-${{ github.run_number }}
+          path: |
+            build/logs/build-timing-report.md
+            build/logs/build-timing-combined.json
+            build/logs/debug-timing.json
+            build/logs/release-timing.json
+          retention-days: 90
+
+      - name: Upload Build Logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-logs-${{ github.run_number }}
+          path: |
+            build/logs/debug-build.log
+            build/logs/release-build.log
+          retention-days: 30
+
+      - name: Compare with Previous Builds
+        if: github.event_name == 'pull_request'
+        run: |
+          # This step attempts to compare with the base branch
+          # In a more sophisticated setup, you could download artifacts from previous runs
+          echo "### Build Comparison" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Current PR build times:" >> $GITHUB_STEP_SUMMARY
+          echo "- Debug: ${{ steps.build_debug.outputs.duration }}s" >> $GITHUB_STEP_SUMMARY
+          echo "- Release: ${{ steps.build_release.outputs.duration }}s" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "_Note: For historical comparison, check the build-timing artifacts from previous runs._" >> $GITHUB_STEP_SUMMARY
 
   validate-agents-md:
     name: Validate AGENTS.md

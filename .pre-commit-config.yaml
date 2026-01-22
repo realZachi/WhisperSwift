@@ -71,6 +71,20 @@ repos:
     hooks:
       - id: shellcheck
 
+  # Duplicate code detection (jscpd)
+  # Note: Requires jscpd to be installed globally (npm install -g jscpd)
+  # This hook runs on all Swift files to detect copy-paste code
+  - repo: local
+    hooks:
+      - id: jscpd
+        name: Duplicate Code Detection (jscpd)
+        entry: bash -c 'if command -v jscpd &> /dev/null; then jscpd --config .jscpd.json --reporters console --exitCode 0 .; else echo "jscpd not installed, skipping. Install with: npm install -g jscpd"; fi'
+        language: system
+        types: [swift]
+        pass_filenames: false
+        stages: [pre-commit]
+        verbose: true
+
 # Default language version
 default_language_version:
   python: python3

@@ -1,92 +1,64 @@
-# Repository Guidelines
+# AGENTS.md
 
-## Project Overview
-WhisperSwift is a macOS menu bar app for push-to-talk speech-to-text using the Groq API. Hold the configured hotkey, speak, release, and the transcription is inserted into the focused app or saved to the clipboard.
+Native macOS menu bar app for speech-to-text via Groq API. Hold hotkey, speak, release, text appears.
 
-## Project Structure & Module Organization
-- `whisperswift/` holds the Swift app sources.
-  - `whisperswift/UI/` contains SwiftUI views (menu bar, settings).
-  - `whisperswift/Services/` contains app services (audio capture, hotkeys, permissions, whisper inference).
-  - `whisperswift/Assets.xcassets/` contains icons and color assets.
-- Models are downloaded at runtime and stored under the app support directory (no bundled model binaries).
-- `whisperswift.xcodeproj/` is the Xcode project definition.
+- **Platform**: macOS 13.0+, Apple Silicon
+- **Language**: Swift 5.0, SwiftUI
 
-## Architecture
-Recording flow: hotkey press -> AudioRecorder captures audio -> GroqTranscriptionService transcribes -> TextInsertionService inserts text. Context capture and cleanup profile selection run before insertion. See `docs/ARCHITECTURE.md` for details.
+## Project Structure
 
-## Build, Test, and Development Commands
-- Open in Xcode: `open whisperswift.xcodeproj` (recommended for running the menu bar app).
-- Build from CLI: `xcodebuild -project whisperswift.xcodeproj -scheme whisperswift -configuration Debug build`.
-- Run via Xcode for menu bar behavior and permissions prompts.
+```
+whisperswift/           # App sources
+├── Services/           # Core services (actors, singletons)
+├── UI/                 # SwiftUI views and controllers
+└── Assets.xcassets/    # Icons and colors
 
-## DMG Release Build (Styled)
-Use a fresh release derived data folder (avoids asset copy permission issues after icon changes).
-
-```bash
-# Release build (Developer ID + timestamp)
-xcodebuild -project whisperswift.xcodeproj -scheme whisperswift -configuration Release \
-  -derivedDataPath build/DerivedDataRelease \
-  CODE_SIGN_STYLE=Manual \
-  CODE_SIGN_IDENTITY="Developer ID Application: <Name> (<TEAMID>)" \
-  DEVELOPMENT_TEAM=<TEAMID> \
-  OTHER_CODE_SIGN_FLAGS="--timestamp" build
-
-# Create styled DMG
-APP_NAME="WhisperSwift"
-VOL_NAME="WhisperSwift"
-DERIVED="build/DerivedDataRelease"
-APP_PATH="$DERIVED/Build/Products/Release/${APP_NAME}.app"
-DMG_RW="build/${APP_NAME}.rw.dmg"
-DMG_FINAL="build/${APP_NAME}.dmg"
-
-rm -f "$DMG_RW" "$DMG_FINAL"
-hdiutil create -size 200m -fs HFS+ -volname "$VOL_NAME" -ov "$DMG_RW"
-MOUNT_INFO=$(hdiutil attach -nobrowse -readwrite "$DMG_RW")
-DEVICE=$(echo "$MOUNT_INFO" | awk '/^\\/dev\\// {print $1; exit}')
-MOUNT_POINT=$(echo "$MOUNT_INFO" | awk '/Volumes\\/[^ ]+/ {print $3; exit}')
-
-cp -R "$APP_PATH" "$MOUNT_POINT/"
-ln -s /Applications "$MOUNT_POINT/Applications"
-mkdir -p "$MOUNT_POINT/.background"
-
-# Use your own bg.png or generate one, then set Finder layout via osascript
-# (see CLAUDE.md for the full layout script).
-
-hdiutil detach "$DEVICE"
-hdiutil convert "$DMG_RW" -format UDZO -o "$DMG_FINAL"
-rm -f "$DMG_RW"
+whisperswiftTests/      # XCTest suite with mocks
+scripts/                # Build, docs, quality scripts
+docs/                   # Architecture and guides
+runbooks/               # Operational procedures
+.github/workflows/      # CI/CD
 ```
 
-### Notarization (App + DMG)
-If macOS warns that malware checks couldn’t run, notarize the app and the DMG:
+## Commands
 
 ```bash
-# Notarize app (must be .zip)
-ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "build/${APP_NAME}.app.zip"
-xcrun notarytool submit "build/${APP_NAME}.app.zip" --keychain-profile "<profile-name>" --wait
-xcrun stapler staple "$APP_PATH"
+# Build (run after code changes)
+xcodebuild -project whisperswift.xcodeproj -scheme whisperswift -configuration Debug build
 
-# Notarize DMG
-xcrun notarytool submit "$DMG_FINAL" --keychain-profile "<profile-name>" --wait
-xcrun stapler staple "$DMG_FINAL"
+# Test
+xcodebuild test -project whisperswift.xcodeproj -scheme whisperswift -destination 'platform=macOS'
+
+# Build with timing
+./scripts/build-with-timing.sh
+
+# Code quality
+./scripts/check-duplicates.sh    # Duplication check
+./scripts/generate-docs.sh       # API docs
 ```
-
-## Coding Style & Naming Conventions
-- Swift style: 4-space indentation; types in `UpperCamelCase`, methods/vars in `lowerCamelCase`.
-- Keep UI in `whisperswift/UI/` and service logic in `whisperswift/Services/`.
-- Prefer small, focused types; keep side effects (permissions, audio, hotkeys) in services.
-
-## Testing Guidelines
-- No test target is present yet. If adding tests, use XCTest and place files under a `whisperswiftTests/` target.
-- Name test files `SomethingTests.swift` and test methods `testSomethingBehavior()`.
 
 ## Git Workflow
-- When a new feature is requested, always create a new branch for that feature before making changes (e.g. `git checkout -b feature/<short-name>`).
 
-## Commit & Pull Request Guidelines
-- Commit history uses short, imperative messages (e.g. "Fix build errors", "Add Groq API integration"). Keep subject lines concise.
-- PRs should describe user-visible changes, include reproduction steps, and mention permission impacts (microphone/accessibility) if relevant.
+**IMPORTANT**: Create a feature branch before making changes: `git checkout -b feature/<name>`
 
-## Security & Configuration Notes
-- Entitlements live in `whisperswift/whisperswift.entitlements`. Update carefully when adding capabilities.
-- Model files are local-only; do not add network calls or telemetry without explicit discussion.
+## Critical Notes
+
+- **Auto-build**: After Swift file changes, always run the build command
+- **Sandbox disabled**: Required for global hotkeys and accessibility API
+- **Entitlements**: Edit `whisperswift/whisperswift.entitlements` carefully
+- **Debug logs**: Written to `/tmp/whisperswift.log`
+
+## Guidelines
+
+For specific tasks, read the relevant documentation:
+
+| Task | Read First |
+|------|------------|
+| Understanding codebase | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
+| Build performance issues | [docs/BUILD_PERFORMANCE.md](docs/BUILD_PERFORMANCE.md) |
+| Feature flag changes | [docs/feature-flags/FEATURE_FLAGS.md](docs/feature-flags/FEATURE_FLAGS.md) |
+| Code style questions | [docs/CODE_STYLE.md](docs/CODE_STYLE.md) |
+| Observability/tracing | [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md) |
+| CI/CD workflows | [docs/CI_CD.md](docs/CI_CD.md) |
+| Release/DMG creation | [docs/RELEASE_BUILD.md](docs/RELEASE_BUILD.md) |
+| Alerting setup | [docs/alerting/ALERTING.md](docs/alerting/ALERTING.md) |

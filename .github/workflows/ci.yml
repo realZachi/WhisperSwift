@@ -6,8 +6,7 @@ name: CI
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
+  # PRs are handled by pr.yml to reduce notification spam
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

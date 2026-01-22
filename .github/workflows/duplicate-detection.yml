@@ -4,12 +4,9 @@
 name: Duplicate Detection
 
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - '**/*.swift'
-      - '.jscpd.json'
-      - '.github/workflows/duplicate-detection.yml'
+  # Disabled for PRs - now handled by pr.yml
+  # Keep for manual runs if needed
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

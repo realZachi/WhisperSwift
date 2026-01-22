@@ -9,14 +9,7 @@ on:
       - 'docs/**'
       - 'scripts/generate-docs.sh'
       - '.github/workflows/docs.yml'
-  pull_request:
-    branches:
-      - main
-    paths:
-      - 'whisperswift/**/*.swift'
-      - 'docs/**'
-      - 'scripts/generate-docs.sh'
-      - '.github/workflows/docs.yml'
+  # PRs don't need docs build - only deploy on main
   workflow_dispatch:
 
 permissions:

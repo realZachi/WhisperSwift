@@ -26,6 +26,8 @@ xcodebuild test -project whisperswift.xcodeproj -scheme whisperswift -destinatio
 
 **IMPORTANT**: Create a feature branch before making changes: `git checkout -b feature/<name>`
 
+**First-time setup**: Run `./scripts/setup-hooks.sh` to enable pre-commit checks (duplicate detection)
+
 ## Critical Notes
 
 - **Auto-build**: After Swift file changes, always run the build command above

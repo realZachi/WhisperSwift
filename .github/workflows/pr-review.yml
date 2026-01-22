@@ -4,8 +4,8 @@
 name: PR Review
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
+  # Disabled - now handled by pr.yml
+  workflow_dispatch:
 
 permissions:
   contents: read

@@ -1,5 +1,8 @@
 # Repository Guidelines
 
+## Project Overview
+WhisperSwift is a macOS menu bar app for push-to-talk speech-to-text using the Groq API. Hold the configured hotkey, speak, release, and the transcription is inserted into the focused app or saved to the clipboard.
+
 ## Project Structure & Module Organization
 - `whisperswift/` holds the Swift app sources.
   - `whisperswift/UI/` contains SwiftUI views (menu bar, settings).
@@ -7,6 +10,9 @@
   - `whisperswift/Assets.xcassets/` contains icons and color assets.
 - Models are downloaded at runtime and stored under the app support directory (no bundled model binaries).
 - `whisperswift.xcodeproj/` is the Xcode project definition.
+
+## Architecture
+Recording flow: hotkey press -> AudioRecorder captures audio -> GroqTranscriptionService transcribes -> TextInsertionService inserts text. Context capture and cleanup profile selection run before insertion. See `docs/ARCHITECTURE.md` for details.
 
 ## Build, Test, and Development Commands
 - Open in Xcode: `open whisperswift.xcodeproj` (recommended for running the menu bar app).

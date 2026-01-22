@@ -21,7 +21,7 @@ private func scrubSensitiveData(_ message: String) -> String {
         "(key-)[A-Za-z0-9]{20,}",           // Generic API keys
         "(api[_-]?key[=:]\\s*)[A-Za-z0-9]{16,}", // api_key=xxx or apiKey: xxx
         "(token[=:]\\s*)[A-Za-z0-9]{16,}",  // token=xxx
-        "(bearer\\s+)[A-Za-z0-9._-]{20,}",  // Bearer tokens
+        "(bearer\\s+)[A-Za-z0-9._-]{20,}"  // Bearer tokens
     ]
 
     for pattern in apiKeyPatterns {
@@ -109,7 +109,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         UserDefaults.standard.register(defaults: [
             "selectedHotkey": "fn",
             "playSounds": true,
-            "groqModel": "whisper-large-v3-turbo",
+            "groqModel": "whisper-large-v3-turbo"
         ])
 
         // Initialize status bar

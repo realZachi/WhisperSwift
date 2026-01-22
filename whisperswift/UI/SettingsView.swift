@@ -180,8 +180,13 @@ struct AboutView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
 
-                Link("github.com/realZachi", destination: URL(string: "https://github.com/realZachi")!)
-                    .font(.caption)
+                if let githubURL = URL(string: "https://github.com/realZachi") {
+                    Link("github.com/realZachi", destination: githubURL)
+                        .font(.caption)
+                } else {
+                    Text("github.com/realZachi")
+                        .font(.caption)
+                }
             }
         }
         .padding(32)

@@ -20,7 +20,7 @@ final class AudioLevelMonitor {
 
     func update(level: Float) {
         currentLevel = level
-        smoothedLevel = smoothedLevel + smoothingFactor * (level - smoothedLevel)
+        smoothedLevel += smoothingFactor * (level - smoothedLevel)
 
         if level > peakLevel {
             peakLevel = level
@@ -162,7 +162,6 @@ struct RecordingPillView: View {
             ProcessingDotsView()
         }
     }
-
 }
 
 // MARK: - Saved to Clipboard Indicator
@@ -177,16 +176,16 @@ private struct SavedToClipboardIndicator: View {
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(.green)
 
-            Text("Saved to clipboard")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(.primary)
-        }
+                Text("Saved to clipboard")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.primary)
+            }
 
-        Text("Press ⌘⌃V to paste")
-            .font(.system(size: 11, weight: .regular))
-            .foregroundStyle(.secondary)
+            Text("Press ⌘⌃V to paste")
+                .font(.system(size: 11, weight: .regular))
+                .foregroundStyle(.secondary)
+        }
     }
-}
 }
 
 // MARK: - Recording Dot
@@ -223,10 +222,7 @@ private struct RecordingDotView: View {
         }
         .onAppear {
             guard isAnimating else { return }
-            withAnimation(
-                .easeInOut(duration: 1.0)
-                .repeatForever(autoreverses: false)
-            ) {
+            withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: false)) {
                 isPulsing = true
             }
         }
@@ -345,10 +341,7 @@ private struct AppleSpinnerView: View {
         }
         .rotationEffect(.degrees(rotation))
         .onAppear {
-            withAnimation(
-                .linear(duration: 0.85)
-                .repeatForever(autoreverses: false)
-            ) {
+            withAnimation(.linear(duration: 0.85).repeatForever(autoreverses: false)) {
                 rotation = 360
             }
         }

@@ -116,8 +116,8 @@ private struct PillContainerView: View {
     var stateManager: RecordingPillStateManager
 
     var body: some View {
-        let _ = stateManager.state
-        RecordingPillView(audioMonitor: audioMonitor, state: stateManager.state)
+        let state = stateManager.state
+        RecordingPillView(audioMonitor: audioMonitor, state: state)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

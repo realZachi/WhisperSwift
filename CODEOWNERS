@@ -1,0 +1,23 @@
+# CODEOWNERS for WhisperSwift
+# These owners will be automatically requested for review on PRs
+
+# Default owners for everything
+* @realZachi
+
+# Core application logic
+/whisperswift/AppDelegate.swift @realZachi
+/whisperswift/Services/ @realZachi
+
+# UI components
+/whisperswift/UI/ @realZachi
+
+# Configuration and CI/CD
+/.github/ @realZachi
+/.swiftlint.yml @realZachi
+/.swiftformat @realZachi
+
+# Documentation
+/README.md @realZachi
+/CLAUDE.md @realZachi
+/AGENTS.md @realZachi
+/docs/ @realZachi

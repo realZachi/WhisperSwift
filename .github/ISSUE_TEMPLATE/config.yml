@@ -1,0 +1,12 @@
+# Issue template configuration
+
+blank_issues_enabled: true
+
+contact_links:
+  - name: Documentation
+    url: https://github.com/realZachi/whisperswift#readme
+    about: Check the README for setup and usage instructions
+
+  - name: Discussions
+    url: https://github.com/realZachi/whisperswift/discussions
+    about: Ask questions and discuss ideas with the community

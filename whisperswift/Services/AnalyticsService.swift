@@ -154,6 +154,8 @@ final class LocalAnalyticsProvider: AnalyticsProviderProtocol, @unchecked Sendab
     /// Exports events as JSON data.
     func exportEvents() -> Data? {
         lock.lock()
+        defer { lock.unlock() }
+
         let eventDicts = events.map { event -> [String: Any] in
             [
                 "id": event.id,
@@ -163,9 +165,13 @@ final class LocalAnalyticsProvider: AnalyticsProviderProtocol, @unchecked Sendab
                 "sessionId": event.sessionId
             ]
         }
-        lock.unlock()
 
-        return try? JSONSerialization.data(withJSONObject: eventDicts, options: .prettyPrinted)
+        do {
+            return try JSONSerialization.data(withJSONObject: eventDicts, options: .prettyPrinted)
+        } catch {
+            logToFile("[ANALYTICS] ERROR: Failed to export events: \(error.localizedDescription)")
+            return nil
+        }
     }
 
     private func formatProperties(_ props: [String: String]) -> String {

@@ -43,7 +43,7 @@ enum FeatureFlagValue: Equatable {
 /// Protocol defining the interface for feature flag management.
 /// Implement this protocol to create custom feature flag providers
 /// (e.g., remote config services, A/B testing platforms).
-protocol FeatureFlagProvider {
+protocol FeatureFlagProvider: Sendable {
     /// Returns the current value for a feature flag, or nil if not set.
     func value(for flag: FeatureFlag) -> FeatureFlagValue?
 
@@ -97,15 +97,11 @@ actor LocalFeatureFlagService: FeatureFlagProvider {
     private let userDefaults: UserDefaults
     private let keyPrefix = "whisperswift.featureflag."
 
-    /// Cache of feature flag values for performance.
-    private var cache: [FeatureFlag: FeatureFlagValue] = [:]
-
     /// Initializes the service with the specified UserDefaults instance.
     /// - Parameter userDefaults: The UserDefaults instance to use for persistence.
     ///                           Defaults to `.standard`.
     init(userDefaults: UserDefaults = .standard) {
         self.userDefaults = userDefaults
-        loadCache()
     }
 
     // MARK: - FeatureFlagProvider Implementation
@@ -150,14 +146,12 @@ actor LocalFeatureFlagService: FeatureFlagProvider {
             userDefaults.set(doubleValue, forKey: key)
         }
 
-        cache[flag] = value
         logToFile("Feature flag '\(flag.rawValue)' set to \(value)")
     }
 
     func resetToDefault(_ flag: FeatureFlag) {
         let key = keyPrefix + flag.rawValue
         userDefaults.removeObject(forKey: key)
-        cache.removeValue(forKey: flag)
         logToFile("Feature flag '\(flag.rawValue)' reset to default")
     }
 
@@ -166,47 +160,70 @@ actor LocalFeatureFlagService: FeatureFlagProvider {
             let key = keyPrefix + flag.rawValue
             userDefaults.removeObject(forKey: key)
         }
-        cache.removeAll()
         logToFile("All feature flags reset to defaults")
     }
 
     nonisolated func isEnabled(_ flag: FeatureFlag) -> Bool {
-        if let value = value(for: flag), let boolValue = value.boolValue {
-            return boolValue
+        if let value = value(for: flag) {
+            if let boolValue = value.boolValue {
+                return boolValue
+            } else {
+                logToFile("[FEATURE_FLAG] WARNING: Flag '\(flag.rawValue)' has non-boolean value: \(value), returning default")
+            }
         }
-        return flag.defaultValue.boolValue ?? false
+        guard let defaultBool = flag.defaultValue.boolValue else {
+            logToFile("[FEATURE_FLAG] ERROR: Flag '\(flag.rawValue)' default value is not boolean")
+            return false
+        }
+        return defaultBool
     }
 
     nonisolated func string(for flag: FeatureFlag) -> String {
-        if let value = value(for: flag), let stringValue = value.stringValue {
-            return stringValue
+        if let value = value(for: flag) {
+            if let stringValue = value.stringValue {
+                return stringValue
+            } else {
+                logToFile("[FEATURE_FLAG] WARNING: Flag '\(flag.rawValue)' has non-string value: \(value), returning default")
+            }
         }
-        return flag.defaultValue.stringValue ?? ""
+        guard let defaultString = flag.defaultValue.stringValue else {
+            logToFile("[FEATURE_FLAG] ERROR: Flag '\(flag.rawValue)' default value is not string")
+            return ""
+        }
+        return defaultString
     }
 
     nonisolated func integer(for flag: FeatureFlag) -> Int {
-        if let value = value(for: flag), let intValue = value.intValue {
-            return intValue
+        if let value = value(for: flag) {
+            if let intValue = value.intValue {
+                return intValue
+            } else {
+                logToFile("[FEATURE_FLAG] WARNING: Flag '\(flag.rawValue)' has non-integer value: \(value), returning default")
+            }
         }
-        return flag.defaultValue.intValue ?? 0
+        guard let defaultInt = flag.defaultValue.intValue else {
+            logToFile("[FEATURE_FLAG] ERROR: Flag '\(flag.rawValue)' default value is not integer")
+            return 0
+        }
+        return defaultInt
     }
 
     nonisolated func double(for flag: FeatureFlag) -> Double {
-        if let value = value(for: flag), let doubleValue = value.doubleValue {
-            return doubleValue
-        }
-        return flag.defaultValue.doubleValue ?? 0.0
-    }
-
-    // MARK: - Cache Management
-
-    private func loadCache() {
-        for flag in FeatureFlag.allCases {
-            if let value = value(for: flag) {
-                cache[flag] = value
+        if let value = value(for: flag) {
+            if let doubleValue = value.doubleValue {
+                return doubleValue
+            } else {
+                logToFile("[FEATURE_FLAG] WARNING: Flag '\(flag.rawValue)' has non-double value: \(value), returning default")
             }
         }
+        guard let defaultDouble = flag.defaultValue.doubleValue else {
+            logToFile("[FEATURE_FLAG] ERROR: Flag '\(flag.rawValue)' default value is not double")
+            return 0.0
+        }
+        return defaultDouble
     }
+
+    // MARK: - Utility Methods
 
     /// Returns all current feature flag values (for debugging).
     func allValues() -> [FeatureFlag: FeatureFlagValue] {

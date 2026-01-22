@@ -57,7 +57,7 @@ export GROQ_API_KEY="gsk_your_new_api_key_here"
 GROQ_API_KEY="gsk_your_new_api_key_here" open -a WhisperSwift
 ```
 
-**Note**: Environment variable takes precedence only if no key is set in UserDefaults.
+**Note**: UserDefaults key takes precedence over the environment variable. The environment variable `GROQ_API_KEY` is only used as a fallback when no key is stored in UserDefaults.
 
 ## Step 3: Verify the New Key
 

@@ -222,19 +222,19 @@ You can override feature flags using the `defaults` command:
 
 ```bash
 # Enable a boolean flag
-defaults write com.yourcompany.whisperswift whisperswift.featureflag.debug_overlay -bool true
+defaults write com.realzachi.whisperswift whisperswift.featureflag.debug_overlay -bool true
 
 # Set an integer flag
-defaults write com.yourcompany.whisperswift whisperswift.featureflag.api_max_retries -int 5
+defaults write com.realzachi.whisperswift whisperswift.featureflag.api_max_retries -int 5
 
 # Set a double flag
-defaults write com.yourcompany.whisperswift whisperswift.featureflag.api_timeout_seconds -float 60.0
+defaults write com.realzachi.whisperswift whisperswift.featureflag.api_timeout_seconds -float 60.0
 
 # Reset a flag (removes override, uses default)
-defaults delete com.yourcompany.whisperswift whisperswift.featureflag.debug_overlay
+defaults delete com.realzachi.whisperswift whisperswift.featureflag.debug_overlay
 
 # Read current value
-defaults read com.yourcompany.whisperswift whisperswift.featureflag.debug_overlay
+defaults read com.realzachi.whisperswift whisperswift.featureflag.debug_overlay
 ```
 
 ## Best Practices

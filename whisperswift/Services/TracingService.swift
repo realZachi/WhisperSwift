@@ -19,8 +19,15 @@ struct TraceID: CustomStringConvertible, Equatable, Hashable, Sendable {
     /// Creates a new random trace ID
     init() {
         var bytes = [UInt8](repeating: 0, count: 16)
-        _ = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
-        self.value = bytes.map { String(format: "%02x", $0) }.joined()
+        let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        if status != errSecSuccess {
+            // Fallback to UUID-based generation if secure random fails
+            logToFile("[TRACE] WARNING: SecRandomCopyBytes failed with status \(status), using UUID fallback")
+            let uuid = UUID().uuidString.replacingOccurrences(of: "-", with: "")
+            self.value = String(uuid.prefix(32)).lowercased()
+        } else {
+            self.value = bytes.map { String(format: "%02x", $0) }.joined()
+        }
     }
 
     /// Creates a trace ID from an existing value
@@ -42,8 +49,15 @@ struct SpanID: CustomStringConvertible, Equatable, Hashable, Sendable {
     /// Creates a new random span ID
     init() {
         var bytes = [UInt8](repeating: 0, count: 8)
-        _ = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
-        self.value = bytes.map { String(format: "%02x", $0) }.joined()
+        let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        if status != errSecSuccess {
+            // Fallback to UUID-based generation if secure random fails
+            logToFile("[TRACE] WARNING: SecRandomCopyBytes failed with status \(status), using UUID fallback")
+            let uuid = UUID().uuidString.replacingOccurrences(of: "-", with: "")
+            self.value = String(uuid.prefix(16)).lowercased()
+        } else {
+            self.value = bytes.map { String(format: "%02x", $0) }.joined()
+        }
     }
 
     /// Creates a span ID from an existing value
@@ -279,18 +293,33 @@ actor TracingService {
     }
 
     /// Restores trace context from propagation headers.
-    func restoreContext(from headers: [String: String]) {
-        guard let traceparent = headers["traceparent"] else { return }
+    /// Returns true if context was successfully restored, false otherwise.
+    @discardableResult
+    func restoreContext(from headers: [String: String]) -> Bool {
+        guard let traceparent = headers["traceparent"] else {
+            logToFile("[TRACE] WARNING: No traceparent header found for context restoration")
+            return false
+        }
 
         let parts = traceparent.split(separator: "-")
-        guard parts.count >= 3,
-              let traceID = TraceID(value: String(parts[1])),
-              let spanID = SpanID(value: String(parts[2])) else {
-            return
+        guard parts.count >= 3 else {
+            logToFile("[TRACE] WARNING: Malformed traceparent header: expected 3+ parts, got \(parts.count)")
+            return false
+        }
+
+        guard let traceID = TraceID(value: String(parts[1])) else {
+            logToFile("[TRACE] WARNING: Invalid trace ID in traceparent: \(parts[1])")
+            return false
+        }
+
+        guard let spanID = SpanID(value: String(parts[2])) else {
+            logToFile("[TRACE] WARNING: Invalid span ID in traceparent: \(parts[2])")
+            return false
         }
 
         currentTraceID = traceID
         currentSpanID = spanID
+        return true
     }
 
     // MARK: - Logging Integration

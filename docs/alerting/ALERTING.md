@@ -1,5 +1,9 @@
 # WhisperSwift Alerting Configuration
 
+> **Note:** This document describes a **proposed alerting system** that is not yet implemented.
+> The `AlertingService` described in the Implementation Guide section is a future enhancement.
+> Use this document as a design reference when implementing alerting functionality.
+
 This document describes the alerting strategy for WhisperSwift, including metrics to monitor, recommended thresholds, and integration with macOS notification center.
 
 ## Table of Contents

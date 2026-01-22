@@ -13,90 +13,55 @@ final class HotkeyManagerTests: XCTestCase {
     // MARK: - Hotkey Configuration Tests
 
     func test_SelectedHotkey_DefaultValue_IsFn() {
-        // Given no UserDefaults value set
         let defaults = UserDefaults.standard
         defaults.removeObject(forKey: "selectedHotkey")
-
-        // When reading the default
         let selected = defaults.string(forKey: "selectedHotkey") ?? "fn"
-
-        // Then default should be "fn"
         XCTAssertEqual(selected, "fn")
     }
 
     func test_SelectedHotkey_Option_IsValid() {
-        // Given
         let validHotkeys = ["fn", "option", "control"]
-
-        // Then option should be valid
         XCTAssertTrue(validHotkeys.contains("option"))
     }
 
     func test_SelectedHotkey_Control_IsValid() {
-        // Given
         let validHotkeys = ["fn", "option", "control"]
-
-        // Then control should be valid
         XCTAssertTrue(validHotkeys.contains("control"))
     }
 
     func test_SelectedHotkey_Fn_IsValid() {
-        // Given
         let validHotkeys = ["fn", "option", "control"]
-
-        // Then fn should be valid
         XCTAssertTrue(validHotkeys.contains("fn"))
     }
 
     func test_HotkeyConfiguration_SavesCorrectly() {
-        // Given
-        let testHotkey = "option"
         let defaults = UserDefaults.standard
-
-        // When
-        defaults.set(testHotkey, forKey: "selectedHotkey")
-
-        // Then
-        let saved = defaults.string(forKey: "selectedHotkey")
-        XCTAssertEqual(saved, testHotkey)
-
-        // Cleanup
+        defaults.set("option", forKey: "selectedHotkey")
+        XCTAssertEqual(defaults.string(forKey: "selectedHotkey"), "option")
         defaults.removeObject(forKey: "selectedHotkey")
     }
 
     // MARK: - Key State Tests
 
     func test_KeyState_InitiallyNotDown() {
-        // Key state should start as not pressed
         var isKeyDown = false
-
-        // Initial state should be false
         XCTAssertFalse(isKeyDown)
-
-        // Simulate key press
         isKeyDown = true
         XCTAssertTrue(isKeyDown)
     }
 
     func test_KeyState_TransitionsCorrectly() {
-        // Given
         var isKeyDown = false
-
-        // When key is pressed
         isKeyDown = true
         XCTAssertTrue(isKeyDown)
-
-        // When key is released
         isKeyDown = false
         XCTAssertFalse(isKeyDown)
     }
 
     func test_KeyState_IgnoresDuplicateDownEvents() {
-        // Given
         var isKeyDown = false
         var keyDownCount = 0
 
-        // When key down is called multiple times without release
         func handleKeyDown() {
             if !isKeyDown {
                 isKeyDown = true
@@ -108,16 +73,13 @@ final class HotkeyManagerTests: XCTestCase {
         handleKeyDown()
         handleKeyDown()
 
-        // Then only one key down should be registered
         XCTAssertEqual(keyDownCount, 1)
     }
 
     func test_KeyState_IgnoresDuplicateUpEvents() {
-        // Given
         var isKeyDown = true
         var keyUpCount = 0
 
-        // When key up is called multiple times without new press
         func handleKeyUp() {
             if isKeyDown {
                 isKeyDown = false
@@ -129,52 +91,37 @@ final class HotkeyManagerTests: XCTestCase {
         handleKeyUp()
         handleKeyUp()
 
-        // Then only one key up should be registered
         XCTAssertEqual(keyUpCount, 1)
     }
 
     // MARK: - Callback Tests
 
     func test_KeyDownCallback_IsInvokedOnKeyPress() {
-        // Given
         var callbackInvoked = false
         var isKeyDown = false
 
-        func onKeyDown() {
+        if !isKeyDown {
+            isKeyDown = true
             callbackInvoked = true
         }
 
-        // When key is pressed
-        if !isKeyDown {
-            isKeyDown = true
-            onKeyDown()
-        }
-
-        // Then callback should be invoked
         XCTAssertTrue(callbackInvoked)
     }
 
     func test_KeyUpCallback_IsInvokedOnKeyRelease() {
-        // Given
         var callbackInvoked = false
         var isKeyDown = true
 
-        func onKeyUp() {
+        if isKeyDown {
+            isKeyDown = false
             callbackInvoked = true
         }
 
-        // When key is released
-        if isKeyDown {
-            isKeyDown = false
-            onKeyUp()
-        }
-
-        // Then callback should be invoked
         XCTAssertTrue(callbackInvoked)
+        _ = isKeyDown // silence warning
     }
 
     func test_Callbacks_AreNotInvokedForDuplicateEvents() {
-        // Given
         var keyDownCallbackCount = 0
         var keyUpCallbackCount = 0
         var isKeyDown = false
@@ -193,13 +140,11 @@ final class HotkeyManagerTests: XCTestCase {
             }
         }
 
-        // When
         handleKeyDown()
-        handleKeyDown() // Duplicate
+        handleKeyDown()
         handleKeyUp()
-        handleKeyUp() // Duplicate
+        handleKeyUp()
 
-        // Then
         XCTAssertEqual(keyDownCallbackCount, 1)
         XCTAssertEqual(keyUpCallbackCount, 1)
     }
@@ -207,84 +152,42 @@ final class HotkeyManagerTests: XCTestCase {
     // MARK: - Modifier Flag Tests
 
     func test_ModifierFlags_FunctionKey_IsRecognized() {
-        // CGEventFlags.maskSecondaryFn is used for Fn key detection
-        let fnKeyMask: UInt64 = 0x800000 // CGEventFlags.maskSecondaryFn raw value
-
-        // Verify the mask is non-zero
+        let fnKeyMask: UInt64 = 0x800000
         XCTAssertNotEqual(fnKeyMask, 0)
     }
 
     func test_ModifierFlags_OptionKey_IsRecognized() {
-        // CGEventFlags.maskAlternate is used for Option key detection
-        let optionKeyMask: UInt64 = 0x80000 // CGEventFlags.maskAlternate raw value
-
-        // Verify the mask is non-zero
+        let optionKeyMask: UInt64 = 0x80000
         XCTAssertNotEqual(optionKeyMask, 0)
     }
 
     func test_ModifierFlags_ControlKey_IsRecognized() {
-        // CGEventFlags.maskControl is used for Control key detection
-        let controlKeyMask: UInt64 = 0x40000 // CGEventFlags.maskControl raw value
-
-        // Verify the mask is non-zero
+        let controlKeyMask: UInt64 = 0x40000
         XCTAssertNotEqual(controlKeyMask, 0)
     }
 
     // MARK: - Hotkey Selection Logic Tests
 
     func test_HotkeySelection_FnKey_MapsCorrectly() {
-        // Given
-        let selectedHotkey = "fn"
-
-        // When determining which mask to use
-        let useFnKey = selectedHotkey == "fn"
-        let useOptionKey = selectedHotkey == "option"
-        let useControlKey = selectedHotkey == "control"
-
-        // Then only fn should be true
-        XCTAssertTrue(useFnKey)
-        XCTAssertFalse(useOptionKey)
-        XCTAssertFalse(useControlKey)
+        XCTAssertTrue("fn" == "fn")
+        XCTAssertFalse("fn" == "option")
+        XCTAssertFalse("fn" == "control")
     }
 
     func test_HotkeySelection_OptionKey_MapsCorrectly() {
-        // Given
-        let selectedHotkey = "option"
-
-        // When determining which mask to use
-        let useFnKey = selectedHotkey == "fn"
-        let useOptionKey = selectedHotkey == "option"
-        let useControlKey = selectedHotkey == "control"
-
-        // Then only option should be true
-        XCTAssertFalse(useFnKey)
-        XCTAssertTrue(useOptionKey)
-        XCTAssertFalse(useControlKey)
+        XCTAssertFalse("option" == "fn")
+        XCTAssertTrue("option" == "option")
+        XCTAssertFalse("option" == "control")
     }
 
     func test_HotkeySelection_ControlKey_MapsCorrectly() {
-        // Given
-        let selectedHotkey = "control"
-
-        // When determining which mask to use
-        let useFnKey = selectedHotkey == "fn"
-        let useOptionKey = selectedHotkey == "option"
-        let useControlKey = selectedHotkey == "control"
-
-        // Then only control should be true
-        XCTAssertFalse(useFnKey)
-        XCTAssertFalse(useOptionKey)
-        XCTAssertTrue(useControlKey)
+        XCTAssertFalse("control" == "fn")
+        XCTAssertFalse("control" == "option")
+        XCTAssertTrue("control" == "control")
     }
 
     func test_HotkeySelection_UnknownKey_DefaultsToFn() {
-        // Given an unknown hotkey value
-        let selectedHotkey = "unknown"
-
-        // When determining behavior
-        let shouldUseFnAsDefault = !["option", "control"].contains(selectedHotkey)
-
-        // Then should default to fn behavior
+        let shouldUseFnAsDefault = !["option", "control"].contains("unknown")
         XCTAssertTrue(shouldUseFnAsDefault)
     }
 
@@ -325,24 +228,15 @@ final class HotkeyManagerTests: XCTestCase {
 final class AccessibilityPermissionTests: XCTestCase {
 
     func test_AccessibilityCheck_ReturnsBoolean() {
-        // The accessibility check should return a boolean value
-        // In tests, we can't actually check the permission, but we verify the interface
-        let permissionGranted: Bool = false // Simulated
-
-        XCTAssertFalse(permissionGranted) // Just verify it's a boolean type
+        let permissionGranted: Bool = false
+        XCTAssertFalse(permissionGranted)
     }
 
     func test_AccessibilityRequired_ForGlobalHotkeys() {
-        // Global hotkey monitoring requires accessibility permissions
-        let requiresAccessibility = true
-
-        XCTAssertTrue(requiresAccessibility)
+        XCTAssertTrue(true) // Global hotkeys require accessibility
     }
 
     func test_AccessibilityRequired_ForCGEventTap() {
-        // CGEvent tap creation requires accessibility permissions
-        let requiresAccessibility = true
-
-        XCTAssertTrue(requiresAccessibility)
+        XCTAssertTrue(true) // CGEvent tap requires accessibility
     }
 }

@@ -2,13 +2,9 @@
 //  MetricsService.swift
 //  whisperswift
 //
-//  Metrics collection service for observability.
-//  Records timing metrics, success/failure counters, audio duration, and API latency.
-//
 
 import Foundation
 
-/// Types of metrics supported by the service.
 enum MetricType: String, Sendable {
     case counter = "counter"
     case gauge = "gauge"
@@ -16,7 +12,6 @@ enum MetricType: String, Sendable {
     case timing = "timing"
 }
 
-/// Represents a single metric data point.
 struct MetricDataPoint: Sendable {
     let name: String
     let type: MetricType
@@ -33,38 +28,21 @@ struct MetricDataPoint: Sendable {
     }
 }
 
-/// Histogram bucket for timing distributions.
 struct HistogramBucket: Sendable {
     let upperBound: Double
     var count: Int
 }
 
-/// Thread-safe service for collecting and reporting metrics.
-/// Provides counters, gauges, histograms, and timing metrics.
 actor MetricsService {
-    /// Shared singleton instance
     static let shared = MetricsService()
 
-    /// Whether metrics collection is enabled
     private var isEnabled: Bool = true
-
-    /// Counter values
     private var counters: [String: Int] = [:]
-
-    /// Gauge values
     private var gauges: [String: Double] = [:]
-
-    /// Histogram values (for timing distributions)
     private var histograms: [String: [Double]] = [:]
-
-    /// Recent metric data points (rolling window)
     private var dataPoints: [MetricDataPoint] = []
     private let maxDataPoints = 10000
-
-    /// Session start time for uptime calculation
     private let sessionStartTime = Date()
-
-    /// Default histogram buckets for timing metrics (in milliseconds)
     private let defaultTimingBuckets: [Double] = [10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000]
 
     private init() {
@@ -104,19 +82,16 @@ actor MetricsService {
 
     // MARK: - Configuration
 
-    /// Enable or disable metrics collection
     func setEnabled(_ enabled: Bool) {
         isEnabled = enabled
     }
 
-    /// Returns whether metrics is currently enabled
     func getEnabled() -> Bool {
         return isEnabled
     }
 
     // MARK: - Counter Operations
 
-    /// Increments a counter by the specified amount (default 1).
     func increment(_ name: String, by amount: Int = 1, tags: [String: String] = [:]) {
         guard isEnabled else { return }
 
@@ -134,14 +109,12 @@ actor MetricsService {
         logMetric("Counter", name: name, value: Double(counters[name]!), tags: tags)
     }
 
-    /// Gets the current value of a counter.
     func getCounter(_ name: String) -> Int {
         return counters[name] ?? 0
     }
 
     // MARK: - Gauge Operations
 
-    /// Sets a gauge to a specific value.
     func setGauge(_ name: String, value: Double, tags: [String: String] = [:]) {
         guard isEnabled else { return }
 
@@ -158,14 +131,12 @@ actor MetricsService {
         logMetric("Gauge", name: name, value: value, tags: tags)
     }
 
-    /// Gets the current value of a gauge.
     func getGauge(_ name: String) -> Double? {
         return gauges[name]
     }
 
     // MARK: - Histogram/Timing Operations
 
-    /// Records a timing value in milliseconds.
     func recordTiming(_ name: String, milliseconds: Double, tags: [String: String] = [:]) {
         guard isEnabled else { return }
 
@@ -189,7 +160,6 @@ actor MetricsService {
         logMetric("Timing", name: name, value: milliseconds, tags: tags, unit: "ms")
     }
 
-    /// Records a duration value in seconds (converted to histogram).
     func recordDuration(_ name: String, seconds: Double, tags: [String: String] = [:]) {
         guard isEnabled else { return }
 
@@ -212,7 +182,6 @@ actor MetricsService {
         logMetric("Duration", name: name, value: seconds, tags: tags, unit: "s")
     }
 
-    /// Gets histogram statistics for a metric.
     func getHistogramStats(_ name: String) -> HistogramStats? {
         guard let values = histograms[name], !values.isEmpty else { return nil }
 
@@ -239,38 +208,32 @@ actor MetricsService {
         )
     }
 
-    // MARK: - Convenience Methods for WhisperSwift Metrics
+    // MARK: - WhisperSwift Metrics
 
-    /// Records the start of a recording session.
     func recordRecordingStarted() {
         increment("recording.started")
     }
 
-    /// Records a completed recording with duration.
     func recordRecordingCompleted(durationSeconds: Double) {
         increment("recording.completed")
         recordDuration("audio.duration_seconds", seconds: durationSeconds)
         recordTiming("recording.duration_ms", milliseconds: durationSeconds * 1000)
     }
 
-    /// Records a cancelled recording.
     func recordRecordingCancelled() {
         increment("recording.cancelled")
     }
 
-    /// Records a failed recording with error.
     func recordRecordingFailed(error: String) {
         increment("recording.failed", tags: ["error": error])
     }
 
-    /// Records the start of a transcription request.
     func recordTranscriptionRequested(audioSeconds: Double) {
         increment("transcription.requested")
         increment("api.groq.requests")
         setGauge("transcription.audio_duration", value: audioSeconds)
     }
 
-    /// Records a successful transcription with latency.
     func recordTranscriptionSucceeded(latencyMilliseconds: Double, characterCount: Int) {
         increment("transcription.succeeded")
         increment("api.groq.success")
@@ -279,7 +242,6 @@ actor MetricsService {
         setGauge("transcription.last_character_count", value: Double(characterCount))
     }
 
-    /// Records a failed transcription.
     func recordTranscriptionFailed(error: String, latencyMilliseconds: Double? = nil) {
         increment("transcription.failed", tags: ["error": error])
         increment("api.groq.errors", tags: ["error": error])
@@ -288,7 +250,6 @@ actor MetricsService {
         }
     }
 
-    /// Records a text insertion attempt and result.
     func recordTextInsertion(outcome: String) {
         increment("insertion.attempted")
         switch outcome {
@@ -314,7 +275,6 @@ actor MetricsService {
 
     // MARK: - Reporting
 
-    /// Returns all current metrics as a dictionary.
     func getAllMetrics() -> [String: Any] {
         var result: [String: Any] = [:]
 
@@ -359,7 +319,6 @@ actor MetricsService {
         return result
     }
 
-    /// Returns a summary of key metrics for display.
     func getSummary() -> MetricsSummary {
         let transcriptionSuccessRate: Double
         let totalTranscriptions = getCounter("transcription.requested")
@@ -382,7 +341,6 @@ actor MetricsService {
         )
     }
 
-    /// Resets all metrics to initial values.
     func reset() {
         counters.removeAll()
         gauges.removeAll()
@@ -409,7 +367,6 @@ actor MetricsService {
 
 // MARK: - Supporting Types
 
-/// Statistics calculated from histogram values.
 struct HistogramStats: Sendable {
     let count: Int
     let sum: Double
@@ -422,7 +379,6 @@ struct HistogramStats: Sendable {
     let p99: Double
 }
 
-/// Summary of key metrics for display.
 struct MetricsSummary: Sendable {
     let totalRecordings: Int
     let totalTranscriptions: Int
@@ -451,7 +407,6 @@ struct MetricsSummary: Sendable {
 
 // MARK: - Timing Helper
 
-/// Helper class for measuring operation timing.
 final class MetricTimer: @unchecked Sendable {
     private let startTime: Date
     private let metricName: String
@@ -464,7 +419,6 @@ final class MetricTimer: @unchecked Sendable {
         self.tags = tags
     }
 
-    /// Ends the timer and records the duration.
     func end() async {
         guard !ended else { return }
         ended = true
@@ -472,7 +426,6 @@ final class MetricTimer: @unchecked Sendable {
         await MetricsService.shared.recordTiming(metricName, milliseconds: elapsed, tags: tags)
     }
 
-    /// Returns the elapsed time in milliseconds without recording.
     func elapsedMilliseconds() -> Double {
         return Date().timeIntervalSince(startTime) * 1000
     }

@@ -13,281 +13,156 @@ final class GroqTranscriptionServiceTests: XCTestCase {
     // MARK: - Error Tests
 
     func test_GroqTranscriptionError_MissingApiKey_HasCorrectDescription() {
-        // Given
-        let error = GroqTranscriptionError.missingApiKey
-
-        // Then
         XCTAssertEqual(
-            error.errorDescription,
+            GroqTranscriptionError.missingApiKey.errorDescription,
             "Groq API key is missing. Set it in Settings or via GROQ_API_KEY."
         )
     }
 
     func test_GroqTranscriptionError_RequestFailed_WithEmptyBody_HasCorrectDescription() {
-        // Given
         let error = GroqTranscriptionError.requestFailed(statusCode: 401, body: "")
-
-        // Then
         XCTAssertEqual(error.errorDescription, "Groq request failed with status 401.")
     }
 
     func test_GroqTranscriptionError_RequestFailed_WithBody_IncludesBody() {
-        // Given
-        let body = "Invalid API key"
-        let error = GroqTranscriptionError.requestFailed(statusCode: 401, body: body)
-
-        // Then
+        let error = GroqTranscriptionError.requestFailed(statusCode: 401, body: "Invalid API key")
         XCTAssertEqual(error.errorDescription, "Groq request failed with status 401: Invalid API key")
     }
 
     func test_GroqTranscriptionError_InvalidResponse_HasCorrectDescription() {
-        // Given
-        let error = GroqTranscriptionError.invalidResponse
-
-        // Then
-        XCTAssertEqual(error.errorDescription, "Groq returned an invalid response.")
+        XCTAssertEqual(GroqTranscriptionError.invalidResponse.errorDescription, "Groq returned an invalid response.")
     }
 
     func test_GroqTranscriptionError_RequestFailed_ServerError_HasCorrectDescription() {
-        // Given
         let error = GroqTranscriptionError.requestFailed(statusCode: 500, body: "Internal Server Error")
-
-        // Then
         XCTAssertEqual(error.errorDescription, "Groq request failed with status 500: Internal Server Error")
     }
 
     func test_GroqTranscriptionError_RequestFailed_RateLimited_HasCorrectDescription() {
-        // Given
         let error = GroqTranscriptionError.requestFailed(statusCode: 429, body: "Rate limit exceeded")
-
-        // Then
         XCTAssertEqual(error.errorDescription, "Groq request failed with status 429: Rate limit exceeded")
     }
 
     // MARK: - WAV Data Generation Tests
 
     func test_WavData_HeaderSize_Is44Bytes() {
-        // WAV header should always be 44 bytes
-        let headerSize = 44
-        XCTAssertEqual(headerSize, 44)
+        XCTAssertEqual(44, 44) // WAV header is always 44 bytes
     }
 
     func test_WavData_SampleSize_Is2BytesFor16Bit() {
-        // 16-bit audio uses 2 bytes per sample
-        let bytesPerSample = 2
-        XCTAssertEqual(bytesPerSample, 2)
+        XCTAssertEqual(2, 2) // 16-bit audio uses 2 bytes per sample
     }
 
     func test_WavData_EstimatedSize_CalculatesCorrectly() {
-        // Given
         let sampleCount = 16000 // 1 second at 16kHz
-        let headerSize = 44
-        let bytesPerSample = 2
-
-        // When
-        let estimatedSize = headerSize + sampleCount * bytesPerSample
-
-        // Then
+        let estimatedSize = 44 + sampleCount * 2
         XCTAssertEqual(estimatedSize, 32044)
     }
 
     func test_WavData_EstimatedSize_30Seconds() {
-        // Given
         let sampleCount = 480000 // 30 seconds at 16kHz
-        let headerSize = 44
-        let bytesPerSample = 2
-
-        // When
-        let estimatedSize = headerSize + sampleCount * bytesPerSample
-
-        // Then
+        let estimatedSize = 44 + sampleCount * 2
         XCTAssertEqual(estimatedSize, 960044)
     }
 
     // MARK: - Chunking Tests
 
     func test_Chunking_MaxAttachmentBytes_Is25MB() {
-        // Maximum attachment size for Groq API is 25MB
-        let maxBytes = 25 * 1024 * 1024
-        XCTAssertEqual(maxBytes, 26214400)
+        XCTAssertEqual(25 * 1024 * 1024, 26214400)
     }
 
     func test_Chunking_TargetSegmentSeconds_Is30() {
-        // Target segment duration for chunking
-        let targetSeconds: Double = 30
-        XCTAssertEqual(targetSeconds, 30)
+        XCTAssertEqual(30.0, 30.0)
     }
 
     func test_Chunking_OverlapSeconds_Is2() {
-        // Overlap between chunks to avoid cutting words
-        let overlapSeconds: Double = 2
-        XCTAssertEqual(overlapSeconds, 2)
+        XCTAssertEqual(2.0, 2.0)
     }
 
     func test_Chunking_MaxSingleRequestSeconds_Is40() {
-        // Maximum duration for a single request
-        let maxSeconds: Double = 40
-        XCTAssertEqual(maxSeconds, 40)
+        XCTAssertEqual(40.0, 40.0)
     }
 
     // MARK: - Transcript Cleanup Tests
 
     func test_CleanTranscriptionArtifacts_RemovesBlankAudio() {
-        // Given
-        let text = "Hello [BLANK_AUDIO] world"
-        let artifacts = ["[BLANK_AUDIO]", "(blank audio)", "[MUSIC]", "[SILENCE]"]
-
-        // When
-        var cleaned = text
-        for artifact in artifacts {
-            cleaned = cleaned.replacingOccurrences(of: artifact, with: "")
-        }
-        cleaned = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        // Then
+        let cleaned = cleanArtifacts("Hello [BLANK_AUDIO] world")
         XCTAssertEqual(cleaned, "Hello  world")
     }
 
     func test_CleanTranscriptionArtifacts_RemovesMusic() {
-        // Given
-        let text = "[MUSIC] Some text [MUSIC]"
-        let artifacts = ["[BLANK_AUDIO]", "(blank audio)", "[MUSIC]", "[SILENCE]"]
-
-        // When
-        var cleaned = text
-        for artifact in artifacts {
-            cleaned = cleaned.replacingOccurrences(of: artifact, with: "")
-        }
-        cleaned = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        // Then
+        let cleaned = cleanArtifacts("[MUSIC] Some text [MUSIC]")
         XCTAssertEqual(cleaned, "Some text")
     }
 
     func test_CleanTranscriptionArtifacts_RemovesSilence() {
-        // Given
-        let text = "[SILENCE] Test [SILENCE]"
-        let artifacts = ["[BLANK_AUDIO]", "(blank audio)", "[MUSIC]", "[SILENCE]"]
-
-        // When
-        var cleaned = text
-        for artifact in artifacts {
-            cleaned = cleaned.replacingOccurrences(of: artifact, with: "")
-        }
-        cleaned = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        // Then
+        let cleaned = cleanArtifacts("[SILENCE] Test [SILENCE]")
         XCTAssertEqual(cleaned, "Test")
     }
 
     func test_CleanTranscriptionArtifacts_HandlesEmptyString() {
-        // Given
-        let text = "[BLANK_AUDIO]"
-        let artifacts = ["[BLANK_AUDIO]", "(blank audio)", "[MUSIC]", "[SILENCE]"]
-
-        // When
-        var cleaned = text
-        for artifact in artifacts {
-            cleaned = cleaned.replacingOccurrences(of: artifact, with: "")
-        }
-        cleaned = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        // Then
+        let cleaned = cleanArtifacts("[BLANK_AUDIO]")
         XCTAssertEqual(cleaned, "")
     }
 
     func test_CleanTranscriptionArtifacts_PreservesNormalText() {
-        // Given
         let text = "This is a normal transcription without artifacts"
-        let artifacts = ["[BLANK_AUDIO]", "(blank audio)", "[MUSIC]", "[SILENCE]"]
+        XCTAssertEqual(cleanArtifacts(text), text)
+    }
 
-        // When
+    private func cleanArtifacts(_ text: String) -> String {
+        let artifacts = ["[BLANK_AUDIO]", "(blank audio)", "[MUSIC]", "[SILENCE]"]
         var cleaned = text
         for artifact in artifacts {
             cleaned = cleaned.replacingOccurrences(of: artifact, with: "")
         }
-        cleaned = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        // Then
-        XCTAssertEqual(cleaned, text)
+        return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     // MARK: - Word Normalization Tests
 
     func test_NormalizeWord_RemovesPunctuation() {
-        // Given
-        let word = "hello,"
-
-        // When
-        let scalars = word.unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) }
-        let normalized = String(String.UnicodeScalarView(scalars)).lowercased()
-
-        // Then
-        XCTAssertEqual(normalized, "hello")
+        XCTAssertEqual(normalizeWord("hello,"), "hello")
     }
 
     func test_NormalizeWord_ConvertsToLowercase() {
-        // Given
-        let word = "HELLO"
-
-        // When
-        let scalars = word.unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) }
-        let normalized = scalars.isEmpty ? word.lowercased() : String(String.UnicodeScalarView(scalars)).lowercased()
-
-        // Then
-        XCTAssertEqual(normalized, "hello")
+        XCTAssertEqual(normalizeWord("HELLO"), "hello")
     }
 
     func test_NormalizeWord_HandlesNumbers() {
-        // Given
-        let word = "test123"
-
-        // When
-        let scalars = word.unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) }
-        let normalized = String(String.UnicodeScalarView(scalars)).lowercased()
-
-        // Then
-        XCTAssertEqual(normalized, "test123")
+        XCTAssertEqual(normalizeWord("test123"), "test123")
     }
 
     func test_NormalizeWord_HandlesSpecialCharactersOnly() {
-        // Given
-        let word = "..."
+        XCTAssertEqual(normalizeWord("..."), "...")
+    }
 
-        // When
+    private func normalizeWord(_ word: String) -> String {
         let scalars = word.unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) }
-        let normalized = scalars.isEmpty ? word.lowercased() : String(String.UnicodeScalarView(scalars)).lowercased()
-
-        // Then
-        XCTAssertEqual(normalized, "...")
+        if scalars.isEmpty {
+            return word.lowercased()
+        }
+        return String(String.UnicodeScalarView(scalars)).lowercased()
     }
 
     // MARK: - Transcript Merging Tests
 
     func test_MergeTranscripts_CombinesTwoSegments() {
-        // Given
-        let transcripts = ["Hello world", "This is a test"]
-
-        // When
-        var combined = ""
-        for chunk in transcripts {
-            let trimmed = chunk.trimmingCharacters(in: .whitespacesAndNewlines)
-            if combined.isEmpty {
-                combined = trimmed
-            } else {
-                combined = combined + " " + trimmed
-            }
-        }
-
-        // Then
+        let combined = mergeTranscripts(["Hello world", "This is a test"])
         XCTAssertEqual(combined, "Hello world This is a test")
     }
 
     func test_MergeTranscripts_SkipsEmptySegments() {
-        // Given
-        let transcripts = ["Hello", "", "world"]
+        let combined = mergeTranscripts(["Hello", "", "world"])
+        XCTAssertEqual(combined, "Hello world")
+    }
 
-        // When
+    func test_MergeTranscripts_TrimsWhitespace() {
+        let combined = mergeTranscripts(["  Hello  ", "  world  "])
+        XCTAssertEqual(combined, "Hello world")
+    }
+
+    private func mergeTranscripts(_ transcripts: [String]) -> String {
         var combined = ""
         for chunk in transcripts {
             let trimmed = chunk.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -298,28 +173,7 @@ final class GroqTranscriptionServiceTests: XCTestCase {
                 combined = combined + " " + trimmed
             }
         }
-
-        // Then
-        XCTAssertEqual(combined, "Hello world")
-    }
-
-    func test_MergeTranscripts_TrimsWhitespace() {
-        // Given
-        let transcripts = ["  Hello  ", "  world  "]
-
-        // When
-        var combined = ""
-        for chunk in transcripts {
-            let trimmed = chunk.trimmingCharacters(in: .whitespacesAndNewlines)
-            if combined.isEmpty {
-                combined = trimmed
-            } else {
-                combined = combined + " " + trimmed
-            }
-        }
-
-        // Then
-        XCTAssertEqual(combined, "Hello world")
+        return combined
     }
 
     // MARK: - Performance Tests
@@ -357,43 +211,31 @@ final class GroqTranscriptionServiceTests: XCTestCase {
 final class ChunkRangeTests: XCTestCase {
 
     func test_ChunkRanges_SingleChunk_ForShortAudio() {
-        // Given short audio that doesn't need chunking
-        let sampleCount = 16000 // 1 second
-        let sampleRate: Double = 16000
-        let targetSegmentSeconds: Double = 30
-        let overlapSeconds: Double = 2
-
-        // When calculating chunk ranges
-        let samplesPerSecond = Int(sampleRate.rounded())
-        let chunkSamples = Int(targetSegmentSeconds * Double(samplesPerSecond))
-        let overlapSamples = Int(overlapSeconds * Double(samplesPerSecond))
-        let step = max(1, chunkSamples - overlapSamples)
-
-        var ranges: [Range<Int>] = []
-        var start = 0
-        while start < sampleCount {
-            let end = min(start + chunkSamples, sampleCount)
-            ranges.append(start..<end)
-            if end == sampleCount { break }
-            start += step
-        }
-
-        // Then should have only one chunk
+        let ranges = calculateChunkRanges(sampleCount: 16000) // 1 second
         XCTAssertEqual(ranges.count, 1)
         XCTAssertEqual(ranges[0], 0..<16000)
     }
 
     func test_ChunkRanges_MultipleChunks_ForLongAudio() {
-        // Given long audio that needs chunking
-        let sampleCount = 960000 // 60 seconds at 16kHz
-        let sampleRate: Double = 16000
-        let targetSegmentSeconds: Double = 30
-        let overlapSeconds: Double = 2
+        let ranges = calculateChunkRanges(sampleCount: 960000) // 60 seconds
+        XCTAssertGreaterThan(ranges.count, 1)
+    }
 
-        // When calculating chunk ranges
-        let samplesPerSecond = Int(sampleRate.rounded())
-        let chunkSamples = Int(targetSegmentSeconds * Double(samplesPerSecond))
-        let overlapSamples = Int(overlapSeconds * Double(samplesPerSecond))
+    func test_ChunkRanges_EmptyAudio_ReturnsEmptyArray() {
+        let ranges = calculateChunkRanges(sampleCount: 0)
+        XCTAssertTrue(ranges.isEmpty)
+    }
+
+    func test_ChunkRanges_OverlapCalculation() {
+        let overlapSamples = Int(2.0 * 16000) // 2 seconds at 16kHz
+        XCTAssertEqual(overlapSamples, 32000)
+    }
+
+    private func calculateChunkRanges(sampleCount: Int, targetSeconds: Double = 30, overlapSeconds: Double = 2) -> [Range<Int>] {
+        guard sampleCount > 0 else { return [] }
+        let sampleRate = 16000
+        let chunkSamples = Int(targetSeconds * Double(sampleRate))
+        let overlapSamples = Int(overlapSeconds * Double(sampleRate))
         let step = max(1, chunkSamples - overlapSamples)
 
         var ranges: [Range<Int>] = []
@@ -404,34 +246,6 @@ final class ChunkRangeTests: XCTestCase {
             if end == sampleCount { break }
             start += step
         }
-
-        // Then should have multiple chunks
-        XCTAssertGreaterThan(ranges.count, 1)
-    }
-
-    func test_ChunkRanges_EmptyAudio_ReturnsEmptyArray() {
-        // Given empty audio
-        let sampleCount = 0
-
-        // When
-        var ranges: [Range<Int>] = []
-        if sampleCount > 0 {
-            ranges.append(0..<sampleCount)
-        }
-
-        // Then
-        XCTAssertTrue(ranges.isEmpty)
-    }
-
-    func test_ChunkRanges_OverlapCalculation() {
-        // Given
-        let sampleRate: Double = 16000
-        let overlapSeconds: Double = 2
-
-        // When
-        let overlapSamples = Int(overlapSeconds * sampleRate)
-
-        // Then 2 seconds of overlap at 16kHz = 32000 samples
-        XCTAssertEqual(overlapSamples, 32000)
+        return ranges
     }
 }

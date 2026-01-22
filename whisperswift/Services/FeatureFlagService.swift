@@ -2,15 +2,11 @@
 //  FeatureFlagService.swift
 //  whisperswift
 //
-//  Service for managing feature flags with support for boolean, string, and numeric values.
-//  Provides thread-safe access to feature flag values with UserDefaults persistence.
-//
 
 import Foundation
 
 // MARK: - Feature Flag Value Types
 
-/// Represents the possible value types for a feature flag.
 enum FeatureFlagValue: Equatable {
     case boolean(Bool)
     case string(String)
@@ -40,66 +36,25 @@ enum FeatureFlagValue: Equatable {
 
 // MARK: - Feature Flag Provider Protocol
 
-/// Protocol defining the interface for feature flag management.
-/// Implement this protocol to create custom feature flag providers
-/// (e.g., remote config services, A/B testing platforms).
 protocol FeatureFlagProvider: Sendable {
-    /// Returns the current value for a feature flag, or nil if not set.
     func value(for flag: FeatureFlag) -> FeatureFlagValue?
-
-    /// Sets a value for a feature flag.
     func setValue(_ value: FeatureFlagValue, for flag: FeatureFlag)
-
-    /// Resets a feature flag to its default value.
     func resetToDefault(_ flag: FeatureFlag)
-
-    /// Resets all feature flags to their default values.
     func resetAllToDefaults()
-
-    /// Returns whether a boolean feature flag is enabled.
-    /// Returns the default value if the flag is not set.
     func isEnabled(_ flag: FeatureFlag) -> Bool
-
-    /// Returns a string feature flag value.
-    /// Returns the default value if the flag is not set.
     func string(for flag: FeatureFlag) -> String
-
-    /// Returns an integer feature flag value.
-    /// Returns the default value if the flag is not set.
     func integer(for flag: FeatureFlag) -> Int
-
-    /// Returns a double feature flag value.
-    /// Returns the default value if the flag is not set.
     func double(for flag: FeatureFlag) -> Double
 }
 
-// MARK: - Local Feature Flag Service (UserDefaults-based)
+// MARK: - Local Feature Flag Service
 
-/// Thread-safe feature flag service using UserDefaults for local storage.
-/// This implementation provides persistent feature flag storage on the device.
-///
-/// Usage:
-/// ```swift
-/// let flagService = LocalFeatureFlagService.shared
-///
-/// // Check if a feature is enabled
-/// if flagService.isEnabled(.experimentalTranscriptionCleanup) {
-///     // Use new cleanup algorithm
-/// }
-///
-/// // Get a numeric configuration value
-/// let maxRetries = flagService.integer(for: .apiMaxRetries)
-/// ```
 actor LocalFeatureFlagService: FeatureFlagProvider {
-    /// Shared singleton instance for app-wide feature flag access.
     static let shared = LocalFeatureFlagService()
 
     private let userDefaults: UserDefaults
     private let keyPrefix = "whisperswift.featureflag."
 
-    /// Initializes the service with the specified UserDefaults instance.
-    /// - Parameter userDefaults: The UserDefaults instance to use for persistence.
-    ///                           Defaults to `.standard`.
     init(userDefaults: UserDefaults = .standard) {
         self.userDefaults = userDefaults
     }
@@ -225,7 +180,6 @@ actor LocalFeatureFlagService: FeatureFlagProvider {
 
     // MARK: - Utility Methods
 
-    /// Returns all current feature flag values (for debugging).
     func allValues() -> [FeatureFlag: FeatureFlagValue] {
         var result: [FeatureFlag: FeatureFlagValue] = [:]
         for flag in FeatureFlag.allCases {
@@ -234,7 +188,6 @@ actor LocalFeatureFlagService: FeatureFlagProvider {
         return result
     }
 
-    /// Returns all overridden feature flags (flags that differ from defaults).
     func overriddenFlags() -> [FeatureFlag: FeatureFlagValue] {
         var result: [FeatureFlag: FeatureFlagValue] = [:]
         for flag in FeatureFlag.allCases {
@@ -246,27 +199,22 @@ actor LocalFeatureFlagService: FeatureFlagProvider {
     }
 }
 
-// MARK: - Debug UI Integration
+// MARK: - Debug
 
 #if DEBUG
-/// Debug utilities for feature flag management during development.
 extension LocalFeatureFlagService {
-    /// Enables a boolean feature flag for testing.
     func enableForTesting(_ flag: FeatureFlag) {
         setValue(.boolean(true), for: flag)
     }
 
-    /// Disables a boolean feature flag for testing.
     func disableForTesting(_ flag: FeatureFlag) {
         setValue(.boolean(false), for: flag)
     }
 
-    /// Sets a test value for a feature flag.
     func setTestValue(_ value: FeatureFlagValue, for flag: FeatureFlag) {
         setValue(value, for: flag)
     }
 
-    /// Returns a debug description of all feature flags and their current values.
     func debugDescription() async -> String {
         var lines: [String] = ["Feature Flags:"]
         for flag in FeatureFlag.allCases {
@@ -283,30 +231,18 @@ extension LocalFeatureFlagService {
 
 // MARK: - Convenience Global Access
 
-/// Global convenience function to check if a feature flag is enabled.
-/// Uses the shared LocalFeatureFlagService instance.
-///
-/// Usage:
-/// ```swift
-/// if isFeatureEnabled(.experimentalTranscriptionCleanup) {
-///     // Use experimental feature
-/// }
-/// ```
 nonisolated func isFeatureEnabled(_ flag: FeatureFlag) -> Bool {
     LocalFeatureFlagService.shared.isEnabled(flag)
 }
 
-/// Global convenience function to get a string feature flag value.
 nonisolated func featureFlagString(_ flag: FeatureFlag) -> String {
     LocalFeatureFlagService.shared.string(for: flag)
 }
 
-/// Global convenience function to get an integer feature flag value.
 nonisolated func featureFlagInt(_ flag: FeatureFlag) -> Int {
     LocalFeatureFlagService.shared.integer(for: flag)
 }
 
-/// Global convenience function to get a double feature flag value.
 nonisolated func featureFlagDouble(_ flag: FeatureFlag) -> Double {
     LocalFeatureFlagService.shared.double(for: flag)
 }

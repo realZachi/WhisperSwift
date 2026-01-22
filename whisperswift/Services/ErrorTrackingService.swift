@@ -2,73 +2,9 @@
 //  ErrorTrackingService.swift
 //  whisperswift
 //
-//  Error tracking service for observability.
-//  Provides a Sentry-compatible interface with local implementation.
-//
-//  ## Integration with Sentry
-//
-//  To integrate Sentry for production error tracking:
-//
-//  1. Add Sentry SDK to your project:
-//     - Add to Package.swift or via CocoaPods/Carthage:
-//       .package(url: "https://github.com/getsentry/sentry-cocoa", from: "8.0.0")
-//
-//  2. Initialize Sentry in AppDelegate:
-//     ```swift
-//     import Sentry
-//
-//     SentrySDK.start { options in
-//         options.dsn = "YOUR_SENTRY_DSN"
-//         options.debug = false
-//         options.tracesSampleRate = 1.0
-//         options.attachStacktrace = true
-//         options.environment = "production"
-//     }
-//     ```
-//
-//  3. Implement SentryErrorTracker:
-//     ```swift
-//     class SentryErrorTracker: ErrorTrackerProtocol {
-//         func captureError(_ error: Error, context: ErrorContext) {
-//             let sentryEvent = Event(level: context.severity.sentryLevel)
-//             sentryEvent.message = SentryMessage(formatted: error.localizedDescription)
-//             sentryEvent.extra = context.metadata
-//             sentryEvent.tags = context.tags
-//             SentrySDK.capture(event: sentryEvent)
-//         }
-//
-//         func captureMessage(_ message: String, severity: ErrorSeverity, context: ErrorContext) {
-//             SentrySDK.capture(message: message)
-//         }
-//
-//         func setUser(id: String?, email: String?, username: String?) {
-//             let user = User()
-//             user.userId = id
-//             user.email = email
-//             user.username = username
-//             SentrySDK.setUser(user)
-//         }
-//
-//         func addBreadcrumb(category: String, message: String, level: ErrorSeverity, data: [String: Any]?) {
-//             let crumb = Breadcrumb()
-//             crumb.category = category
-//             crumb.message = message
-//             crumb.level = level.sentryLevel
-//             crumb.data = data
-//             SentrySDK.addBreadcrumb(crumb)
-//         }
-//     }
-//     ```
-//
-//  4. Replace the local tracker:
-//     ```swift
-//     await ErrorTrackingService.shared.setTracker(SentryErrorTracker())
-//     ```
-//
 
 import Foundation
 
-/// Severity levels for errors and messages.
 enum ErrorSeverity: String, Sendable {
     case debug = "debug"
     case info = "info"
@@ -76,7 +12,6 @@ enum ErrorSeverity: String, Sendable {
     case error = "error"
     case fatal = "fatal"
 
-    /// Returns the emoji representation for logging
     var emoji: String {
         switch self {
         case .debug: return "🔍"
@@ -88,7 +23,6 @@ enum ErrorSeverity: String, Sendable {
     }
 }
 
-/// Context information attached to errors.
 struct ErrorContext: Sendable {
     let severity: ErrorSeverity
     let tags: [String: String]
@@ -108,7 +42,6 @@ struct ErrorContext: Sendable {
     }
 }
 
-/// Breadcrumb for tracking user/system actions leading to an error.
 struct ErrorBreadcrumb: Sendable {
     let timestamp: Date
     let category: String
@@ -130,7 +63,6 @@ struct ErrorBreadcrumb: Sendable {
     }
 }
 
-/// Captured error record for local storage.
 struct CapturedError: Sendable {
     let id: String
     let timestamp: Date
@@ -158,30 +90,15 @@ struct CapturedError: Sendable {
     }
 }
 
-/// Protocol for error tracking implementations.
-/// Implement this protocol to integrate with external error tracking services.
 protocol ErrorTrackerProtocol: Sendable {
-    /// Captures an error with context.
     func captureError(_ error: Error, context: ErrorContext) async
-
-    /// Captures a message with severity and context.
     func captureMessage(_ message: String, severity: ErrorSeverity, context: ErrorContext) async
-
-    /// Sets the current user for error attribution.
     func setUser(id: String?, email: String?, username: String?) async
-
-    /// Adds a breadcrumb for tracking user actions.
     func addBreadcrumb(category: String, message: String, level: ErrorSeverity, data: [String: String]?) async
-
-    /// Clears the current user.
     func clearUser() async
-
-    /// Flushes any pending error reports.
     func flush() async
 }
 
-/// Local error tracker that logs errors with full context.
-/// Use this for development or as a fallback when external services are unavailable.
 final class LocalErrorTracker: ErrorTrackerProtocol, @unchecked Sendable {
     private var capturedErrors: [CapturedError] = []
     private var breadcrumbs: [ErrorBreadcrumb] = []
@@ -266,10 +183,7 @@ final class LocalErrorTracker: ErrorTrackerProtocol, @unchecked Sendable {
         logToFile("[BREADCRUMB] [\(category)] \(message)")
     }
 
-    func flush() async {
-        // Local tracker doesn't need to flush
-        logToFile("[ERROR_TRACKING] Flush requested (no-op for local tracker)")
-    }
+    func flush() async {}
 
     private func logError(_ captured: CapturedError) {
         var message = "[ERROR_TRACKING] \(captured.context.severity.emoji) [\(captured.context.severity.rawValue.uppercased())]"
@@ -288,30 +202,25 @@ final class LocalErrorTracker: ErrorTrackerProtocol, @unchecked Sendable {
         logToFile(message)
     }
 
-    /// Returns all captured errors for inspection.
     func getCapturedErrors() -> [CapturedError] {
         lock.lock()
         defer { lock.unlock() }
         return capturedErrors
     }
 
-    /// Returns recent breadcrumbs.
     func getBreadcrumbs() -> [ErrorBreadcrumb] {
         lock.lock()
         defer { lock.unlock() }
         return breadcrumbs
     }
 
-    /// Clears all captured errors and breadcrumbs.
     func clear() {
         lock.lock()
         capturedErrors.removeAll()
         breadcrumbs.removeAll()
         lock.unlock()
-        logToFile("[ERROR_TRACKING] Cleared all captured errors and breadcrumbs")
     }
 
-    /// Returns error statistics.
     func getStatistics() -> [String: Any] {
         lock.lock()
         defer { lock.unlock() }
@@ -331,68 +240,46 @@ final class LocalErrorTracker: ErrorTrackerProtocol, @unchecked Sendable {
     }
 }
 
-/// Thread-safe error tracking service.
-/// Provides a unified interface for error tracking with pluggable backends.
 actor ErrorTrackingService {
-    /// Shared singleton instance
     static let shared = ErrorTrackingService()
 
-    /// The active error tracker implementation
     private var tracker: any ErrorTrackerProtocol
-
-    /// Whether error tracking is enabled
     private var isEnabled: Bool = true
-
-    /// Global tags applied to all errors
     private var globalTags: [String: String] = [:]
-
-    /// Global metadata applied to all errors
     private var globalMetadata: [String: String] = [:]
 
     private init() {
         self.tracker = LocalErrorTracker()
     }
 
-    // MARK: - Configuration
-
-    /// Sets the error tracker implementation.
     func setTracker(_ tracker: any ErrorTrackerProtocol) {
         self.tracker = tracker
     }
 
-    /// Returns the current tracker (useful for accessing local tracker features).
     func getTracker() -> any ErrorTrackerProtocol {
         return tracker
     }
 
-    /// Enable or disable error tracking.
     func setEnabled(_ enabled: Bool) {
         isEnabled = enabled
     }
 
-    /// Returns whether error tracking is enabled.
     func getEnabled() -> Bool {
         return isEnabled
     }
 
-    /// Sets global tags applied to all errors.
     func setGlobalTags(_ tags: [String: String]) {
         globalTags = tags
     }
 
-    /// Adds a global tag.
     func addGlobalTag(key: String, value: String) {
         globalTags[key] = value
     }
 
-    /// Sets global metadata applied to all errors.
     func setGlobalMetadata(_ metadata: [String: String]) {
         globalMetadata = metadata
     }
 
-    // MARK: - Error Capture
-
-    /// Captures an error with optional additional context.
     func captureError(
         _ error: Error,
         severity: ErrorSeverity = .error,
@@ -420,7 +307,6 @@ actor ErrorTrackingService {
         await tracker.captureError(error, context: context)
     }
 
-    /// Captures a message with severity and optional context.
     func captureMessage(
         _ message: String,
         severity: ErrorSeverity = .info,
@@ -448,21 +334,14 @@ actor ErrorTrackingService {
         await tracker.captureMessage(message, severity: severity, context: context)
     }
 
-    // MARK: - User Context
-
-    /// Sets the current user for error attribution.
     func setUser(id: String? = nil, email: String? = nil, username: String? = nil) async {
         await tracker.setUser(id: id, email: email, username: username)
     }
 
-    /// Clears the current user.
     func clearUser() async {
         await tracker.clearUser()
     }
 
-    // MARK: - Breadcrumbs
-
-    /// Adds a breadcrumb for tracking user/system actions.
     func addBreadcrumb(
         category: String,
         message: String,
@@ -473,9 +352,6 @@ actor ErrorTrackingService {
         await tracker.addBreadcrumb(category: category, message: message, level: level, data: data)
     }
 
-    // MARK: - Convenience Methods for WhisperSwift
-
-    /// Captures a recording error.
     func captureRecordingError(_ error: Error) async {
         await captureError(
             error,
@@ -485,7 +361,6 @@ actor ErrorTrackingService {
         )
     }
 
-    /// Captures a transcription error.
     func captureTranscriptionError(_ error: Error, audioSeconds: Double? = nil) async {
         var metadata: [String: String] = ["operation": "transcription"]
         if let seconds = audioSeconds {
@@ -500,7 +375,6 @@ actor ErrorTrackingService {
         )
     }
 
-    /// Captures an API error.
     func captureAPIError(_ error: Error, endpoint: String, statusCode: Int? = nil) async {
         var metadata: [String: String] = [
             "operation": "api_request",
@@ -518,7 +392,6 @@ actor ErrorTrackingService {
         )
     }
 
-    /// Captures a text insertion error.
     func captureInsertionError(_ error: Error, method: String) async {
         await captureError(
             error,
@@ -528,18 +401,12 @@ actor ErrorTrackingService {
         )
     }
 
-    // MARK: - Flush
-
-    /// Flushes any pending error reports.
     func flush() async {
         await tracker.flush()
     }
 }
 
-// MARK: - Dictionary Extension
-
 extension Dictionary {
-    /// Maps dictionary keys using a transform function.
     func mapKeys<T: Hashable>(_ transform: (Key) -> T) -> [T: Value] {
         var result: [T: Value] = [:]
         for (key, value) in self {

@@ -8,7 +8,6 @@
 import Foundation
 @testable import whisperswift
 
-/// Mock permission manager for testing permission-related workflows
 class MockPermissionManager {
     var mockHasMicrophoneAccess: Bool = true
     var mockHasAccessibilityAccess: Bool = true
@@ -27,8 +26,7 @@ class MockPermissionManager {
 
     func requestPermissions() async {
         requestPermissionsCallCount += 1
-        // Simulate async permission request
-        try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
+        try? await Task.sleep(nanoseconds: 10_000_000)
     }
 
     func openMicrophoneSettings() {

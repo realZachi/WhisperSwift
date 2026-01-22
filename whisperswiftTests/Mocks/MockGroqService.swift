@@ -8,7 +8,6 @@
 import Foundation
 @testable import whisperswift
 
-/// Mock Groq service for testing transcription workflows
 actor MockGroqService {
     var mockTranscription: String = "Test transcription"
     var shouldFail: Bool = false
@@ -36,8 +35,7 @@ actor MockGroqService {
             throw failureError
         }
 
-        // Simulate network delay
-        try await Task.sleep(nanoseconds: 10_000_000) // 10ms
+        try await Task.sleep(nanoseconds: 10_000_000)
 
         return mockTranscription
     }
@@ -51,7 +49,6 @@ actor MockGroqService {
             throw failureError
         }
 
-        // Simulate cleanup by removing common disfluencies
         var cleaned = transcript
         let disfluencies = ["um", "uh", "like", "you know"]
         for disfluency in disfluencies {

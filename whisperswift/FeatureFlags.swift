@@ -2,104 +2,41 @@
 //  FeatureFlags.swift
 //  whisperswift
 //
-//  Defines all feature flags used in the application.
-//  Each flag has a unique identifier, default value, and documentation.
-//
 
 import Foundation
 
-/// Enumeration of all feature flags in the application.
-/// Each case represents a configurable feature or behavior.
-///
-/// To add a new feature flag:
-/// 1. Add a new case to this enum
-/// 2. Provide a default value in the `defaultValue` computed property
-/// 3. Add documentation in the `description` computed property
-/// 4. Use the flag in code via `isFeatureEnabled(.yourFlag)` or the FeatureFlagService
-///
-/// Example usage:
-/// ```swift
-/// // Boolean flag check
-/// if isFeatureEnabled(.experimentalTranscriptionCleanup) {
-///     // Use experimental cleanup
-/// }
-///
-/// // Numeric flag for configuration
-/// let timeout = featureFlagDouble(.apiTimeoutSeconds)
-/// ```
 enum FeatureFlag: String, CaseIterable {
     // MARK: - Transcription Features
-
-    /// Enables experimental transcription cleanup using enhanced AI processing.
-    /// When enabled, transcriptions go through an additional cleanup pass
-    /// to remove disfluencies and improve readability.
     case experimentalTranscriptionCleanup = "experimental_transcription_cleanup"
-
-    /// Enables verbose logging of transcription operations.
-    /// Useful for debugging transcription issues.
     case verboseTranscriptionLogging = "verbose_transcription_logging"
 
     // MARK: - Audio Features
-
-    /// Enables enhanced audio normalization before transcription.
-    /// May improve transcription accuracy in noisy environments.
     case enhancedAudioNormalization = "enhanced_audio_normalization"
-
-    /// Enables audio level visualization in the recording pill.
-    /// Shows real-time audio levels during recording.
     case audioLevelVisualization = "audio_level_visualization"
 
     // MARK: - UI Features
-
-    /// Enables the new recording pill design with enhanced animations.
     case newRecordingPillDesign = "new_recording_pill_design"
-
-    /// Enables haptic feedback on supported devices.
-    /// Currently no-op on macOS but prepared for future support.
     case hapticFeedback = "haptic_feedback"
-
-    /// Enables dark mode support independent of system setting.
     case forceDarkMode = "force_dark_mode"
 
     // MARK: - Network & API Features
-
-    /// Maximum number of retry attempts for API requests.
     case apiMaxRetries = "api_max_retries"
-
-    /// Timeout in seconds for API requests.
     case apiTimeoutSeconds = "api_timeout_seconds"
-
-    /// Enables request compression for API calls.
-    /// May reduce bandwidth usage but increase CPU load.
     case enableRequestCompression = "enable_request_compression"
 
     // MARK: - Developer & Debug Features
-
-    /// Enables debug overlay showing internal state.
-    /// Only available in DEBUG builds.
     case debugOverlay = "debug_overlay"
-
-    /// Enables performance metrics logging.
     case performanceMetrics = "performance_metrics"
-
-    /// Mock transcription service for testing without API calls.
-    /// When enabled, returns predefined test responses.
     case mockTranscriptionService = "mock_transcription_service"
 
     // MARK: - Accessibility Features
-
-    /// Enables enhanced accessibility announcements for VoiceOver.
     case enhancedAccessibilityAnnouncements = "enhanced_accessibility_announcements"
-
-    /// Uses alternative text insertion method for specific apps.
     case alternativeTextInsertion = "alternative_text_insertion"
 }
 
 // MARK: - Default Values
 
 extension FeatureFlag {
-    /// Returns the default value for this feature flag.
-    /// These defaults are used when no override has been set.
     var defaultValue: FeatureFlagValue {
         switch self {
         // Transcription Features
@@ -150,7 +87,6 @@ extension FeatureFlag {
 // MARK: - Documentation
 
 extension FeatureFlag {
-    /// Returns a human-readable description of this feature flag.
     var description: String {
         switch self {
         // Transcription Features
@@ -197,7 +133,6 @@ extension FeatureFlag {
         }
     }
 
-    /// Returns the category this feature flag belongs to.
     var category: FeatureFlagCategory {
         switch self {
         case .experimentalTranscriptionCleanup, .verboseTranscriptionLogging:
@@ -218,7 +153,6 @@ extension FeatureFlag {
 
 // MARK: - Feature Flag Categories
 
-/// Categories for organizing feature flags.
 enum FeatureFlagCategory: String, CaseIterable {
     case transcription = "Transcription"
     case audio = "Audio"
@@ -227,7 +161,6 @@ enum FeatureFlagCategory: String, CaseIterable {
     case developer = "Developer & Debug"
     case accessibility = "Accessibility"
 
-    /// Returns all feature flags in this category.
     var flags: [FeatureFlag] {
         FeatureFlag.allCases.filter { $0.category == self }
     }

@@ -8,7 +8,6 @@
 import Foundation
 @testable import whisperswift
 
-/// Mock audio recorder for testing recording workflows
 actor MockAudioRecorder {
     var isRecording = false
     var mockSamples: [Float] = []
@@ -48,12 +47,10 @@ actor MockAudioRecorder {
 
     // MARK: - Test Helpers
 
-    /// Add mock audio samples (simulates audio input)
     func addMockSamples(_ samples: [Float]) {
         mockSamples.append(contentsOf: samples)
     }
 
-    /// Generate mock speech samples
     func generateMockSpeech(durationSeconds: Double) {
         let sampleCount = Int(durationSeconds * targetSampleRate)
         mockSamples = (0..<sampleCount).map { index in
@@ -66,13 +63,11 @@ actor MockAudioRecorder {
         }
     }
 
-    /// Generate silent audio
     func generateSilence(durationSeconds: Double) {
         let sampleCount = Int(durationSeconds * targetSampleRate)
         mockSamples = [Float](repeating: 0, count: sampleCount)
     }
 
-    /// Reset the mock state
     func reset() {
         isRecording = false
         mockSamples = []
@@ -83,7 +78,6 @@ actor MockAudioRecorder {
         levelCallback = nil
     }
 
-    /// Simulate audio level updates
     func simulateLevelUpdate(_ level: Float) {
         levelCallback?(level)
     }
@@ -92,7 +86,6 @@ actor MockAudioRecorder {
 // MARK: - Test Audio Sample Generators
 
 enum TestAudioGenerator {
-    /// Generate a simple sine wave
     static func sineWave(frequency: Double, duration: Double, sampleRate: Double, amplitude: Float = 0.5) -> [Float] {
         let sampleCount = Int(duration * sampleRate)
         return (0..<sampleCount).map { index in
@@ -101,7 +94,6 @@ enum TestAudioGenerator {
         }
     }
 
-    /// Generate white noise
     static func whiteNoise(duration: Double, sampleRate: Double, amplitude: Float = 0.1) -> [Float] {
         let sampleCount = Int(duration * sampleRate)
         return (0..<sampleCount).map { _ in
@@ -109,13 +101,11 @@ enum TestAudioGenerator {
         }
     }
 
-    /// Generate silence
     static func silence(duration: Double, sampleRate: Double) -> [Float] {
         let sampleCount = Int(duration * sampleRate)
         return [Float](repeating: 0, count: sampleCount)
     }
 
-    /// Generate speech-like audio (sine wave with noise)
     static func speechLike(duration: Double, sampleRate: Double) -> [Float] {
         let sampleCount = Int(duration * sampleRate)
         return (0..<sampleCount).map { index in
@@ -134,7 +124,6 @@ enum TestAudioGenerator {
         }
     }
 
-    /// Generate audio with speech and silence segments
     static func speechWithPauses(
         speechDuration: Double,
         pauseDuration: Double,

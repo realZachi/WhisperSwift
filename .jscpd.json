@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json.schemastore.org/jscpd.json",
+  "threshold": 5,
+  "reporters": ["console", "json", "markdown"],
+  "output": "./reports/jscpd",
+  "format": ["swift"],
+  "ignore": [
+    "**/build/**",
+    "**/DerivedData/**",
+    "**/*.xcodeproj/**",
+    "**/node_modules/**",
+    "**/.git/**",
+    "**/reports/**",
+    "**/*.xcassets/**",
+    "**/Contents.json"
+  ],
+  "absolute": true,
+  "gitignore": true,
+  "minLines": 10,
+  "minTokens": 50,
+  "skipLocal": false,
+  "blame": false,
+  "silent": false,
+  "ignoreCase": false,
+  "noSymlinks": true,
+  "exitCode": 1
+}

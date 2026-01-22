@@ -159,7 +159,7 @@ actor TracingService {
     /// Starts a new trace with a fresh trace ID.
     /// Returns the new trace ID.
     @discardableResult
-    func startTrace(operationName: String, attributes: [String: String] = []) -> TraceID {
+    func startTrace(operationName: String, attributes: [String: String] = [:]) -> TraceID {
         let traceID = TraceID()
         currentTraceID = traceID
         currentSpanID = nil

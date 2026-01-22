@@ -1,0 +1,213 @@
+# GitHub Labels Configuration for WhisperSwift
+#
+# This file defines the labels used for issues and pull requests.
+# To apply these labels, use a GitHub Action or the github-label-sync tool:
+#   npx github-label-sync --labels .github/labels.yml realZachi/whisperswift
+#
+# Label format:
+#   - name: label name
+#     color: hex color without #
+#     description: label description
+
+# =============================================================================
+# TYPE LABELS - Categorize the nature of the issue/PR
+# =============================================================================
+- name: bug
+  color: d73a4a
+  description: Something isn't working as expected
+
+- name: enhancement
+  color: a2eeef
+  description: New feature or improvement request
+
+- name: documentation
+  color: 0075ca
+  description: Documentation improvements or additions
+
+- name: question
+  color: d876e3
+  description: Further information is requested
+
+- name: refactor
+  color: fbca04
+  description: Code refactoring without functional changes
+
+- name: performance
+  color: f9d0c4
+  description: Performance improvements or optimizations
+
+- name: testing
+  color: bfd4f2
+  description: Adding or improving tests
+
+- name: chore
+  color: fef2c0
+  description: Maintenance tasks, build changes, etc.
+
+# =============================================================================
+# PRIORITY LABELS - Indicate urgency (maintainers only)
+# =============================================================================
+- name: "priority: critical"
+  color: b60205
+  description: Must be fixed immediately - blocking users
+
+- name: "priority: high"
+  color: d93f0b
+  description: Should be fixed soon - significant impact
+
+- name: "priority: medium"
+  color: fbca04
+  description: Normal priority - plan for upcoming release
+
+- name: "priority: low"
+  color: 0e8a16
+  description: Nice to have - not urgent
+
+# =============================================================================
+# STATUS LABELS - Track issue/PR progress
+# =============================================================================
+- name: needs-triage
+  color: e4e669
+  description: Needs initial review and categorization
+
+- name: needs-info
+  color: d4c5f9
+  description: Waiting for more information from reporter
+
+- name: needs-reproduction
+  color: c5def5
+  description: Needs a reproducible example
+
+- name: in-progress
+  color: 1d76db
+  description: Currently being worked on
+
+- name: blocked
+  color: b60205
+  description: Blocked by another issue or external factor
+
+- name: ready-for-review
+  color: 0e8a16
+  description: Ready for code review
+
+- name: on-hold
+  color: d4c5f9
+  description: Temporarily paused
+
+# =============================================================================
+# COMPONENT LABELS - Identify affected areas of the codebase
+# =============================================================================
+- name: "area: audio"
+  color: c5def5
+  description: Related to audio recording and processing
+
+- name: "area: transcription"
+  color: c5def5
+  description: Related to Groq API and speech-to-text
+
+- name: "area: ui"
+  color: c5def5
+  description: Related to user interface and settings
+
+- name: "area: hotkeys"
+  color: c5def5
+  description: Related to hotkey detection and handling
+
+- name: "area: text-insertion"
+  color: c5def5
+  description: Related to text insertion and clipboard
+
+- name: "area: permissions"
+  color: c5def5
+  description: Related to macOS permissions
+
+- name: "area: build"
+  color: c5def5
+  description: Related to build system and CI/CD
+
+- name: "area: release"
+  color: c5def5
+  description: Related to release process and distribution
+
+# =============================================================================
+# PLATFORM LABELS - macOS version specific issues
+# =============================================================================
+- name: "macos: ventura"
+  color: 5319e7
+  description: Specific to macOS 13 Ventura
+
+- name: "macos: sonoma"
+  color: 5319e7
+  description: Specific to macOS 14 Sonoma
+
+- name: "macos: sequoia"
+  color: 5319e7
+  description: Specific to macOS 15 Sequoia
+
+# =============================================================================
+# SECURITY LABELS
+# =============================================================================
+- name: security
+  color: d73a4a
+  description: Security-related issue or improvement
+
+- name: "security: vulnerability"
+  color: b60205
+  description: Potential security vulnerability - handle privately
+
+# =============================================================================
+# SPECIAL LABELS
+# =============================================================================
+- name: good first issue
+  color: 7057ff
+  description: Good for newcomers to the project
+
+- name: help wanted
+  color: "008672"
+  description: Extra attention is needed
+
+- name: hacktoberfest
+  color: ff7518
+  description: Eligible for Hacktoberfest participation
+
+- name: dependencies
+  color: 0366d6
+  description: Dependency updates (used by Dependabot)
+
+- name: github-actions
+  color: "000000"
+  description: CI/CD workflow changes
+
+# =============================================================================
+# RESOLUTION LABELS
+# =============================================================================
+- name: duplicate
+  color: cfd3d7
+  description: This issue or PR already exists
+
+- name: wontfix
+  color: ffffff
+  description: This will not be worked on
+
+- name: invalid
+  color: e4e669
+  description: This doesn't seem right or is not reproducible
+
+- name: stale
+  color: ededed
+  description: Issue has been inactive and may be closed
+
+- name: "by-design"
+  color: c2e0c6
+  description: Working as intended
+
+# =============================================================================
+# FEEDBACK LABELS
+# =============================================================================
+- name: feedback-requested
+  color: fbca04
+  description: Requesting feedback from community
+
+- name: rfc
+  color: 7057ff
+  description: Request for comments - design discussion

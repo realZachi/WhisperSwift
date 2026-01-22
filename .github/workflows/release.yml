@@ -1,0 +1,94 @@
+# Release automation workflow for WhisperSwift
+# Triggers on version tags and creates GitHub releases with DMG
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build and Release
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Get version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Build Release
+        run: |
+          xcodebuild -project whisperswift.xcodeproj \
+            -scheme whisperswift \
+            -configuration Release \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            build
+
+      - name: Create DMG
+        run: |
+          APP_PATH="build/DerivedData/Build/Products/Release/WhisperSwift.app"
+          DMG_PATH="build/WhisperSwift-${{ steps.version.outputs.VERSION }}.dmg"
+
+          # Create temporary DMG directory
+          mkdir -p build/dmg
+          cp -R "$APP_PATH" build/dmg/
+          ln -s /Applications build/dmg/Applications
+
+          # Create DMG
+          hdiutil create -volname "WhisperSwift" \
+            -srcfolder build/dmg \
+            -ov -format UDZO \
+            "$DMG_PATH"
+
+      - name: Generate Release Notes
+        id: release_notes
+        run: |
+          # Get commits since last tag
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            NOTES=$(git log --pretty=format:"- %s" ${PREV_TAG}..HEAD)
+          else
+            NOTES=$(git log --pretty=format:"- %s" HEAD~10..HEAD)
+          fi
+
+          # Write to file for multi-line support
+          echo "## What's Changed" > release_notes.md
+          echo "" >> release_notes.md
+          echo "$NOTES" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "## Installation" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "1. Download \`WhisperSwift-${{ steps.version.outputs.VERSION }}.dmg\`" >> release_notes.md
+          echo "2. Open the DMG and drag WhisperSwift to Applications" >> release_notes.md
+          echo "3. Open WhisperSwift from Applications" >> release_notes.md
+          echo "4. Grant Microphone and Accessibility permissions when prompted" >> release_notes.md
+          echo "5. Enter your Groq API key in Settings" >> release_notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: WhisperSwift v${{ steps.version.outputs.VERSION }}
+          body_path: release_notes.md
+          draft: false
+          prerelease: ${{ contains(github.ref, '-beta') || contains(github.ref, '-alpha') }}
+          files: |
+            build/WhisperSwift-${{ steps.version.outputs.VERSION }}.dmg
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

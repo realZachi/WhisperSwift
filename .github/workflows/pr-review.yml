@@ -1,0 +1,121 @@
+# Automated PR Review workflow for WhisperSwift
+# Performs automated checks and adds review comments
+
+name: PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  automated-review:
+    name: Automated Review
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v42
+        with:
+          files: |
+            **/*.swift
+            **/*.md
+            **/*.yml
+            **/*.yaml
+
+      - name: Install SwiftLint
+        if: steps.changed-files.outputs.any_changed == 'true'
+        run: brew install swiftlint
+
+      - name: Run SwiftLint on changed files
+        if: steps.changed-files.outputs.any_changed == 'true'
+        id: swiftlint
+        continue-on-error: true
+        run: |
+          SWIFT_FILES=$(echo "${{ steps.changed-files.outputs.all_changed_files }}" | tr ' ' '\n' | grep '\.swift$' || true)
+          if [ -n "$SWIFT_FILES" ]; then
+            echo "$SWIFT_FILES" | xargs swiftlint lint --config .swiftlint.yml --reporter json > swiftlint_report.json || true
+          else
+            echo "[]" > swiftlint_report.json
+          fi
+
+      - name: Check for TODO/FIXME in changes
+        id: tech-debt
+        run: |
+          git diff origin/${{ github.base_ref }}...HEAD -- '*.swift' | grep -E '^\+.*(//(TODO|FIXME|HACK|XXX)|#(TODO|FIXME|HACK|XXX))' > tech_debt.txt || true
+          if [ -s tech_debt.txt ]; then
+            echo "has_tech_debt=true" >> $GITHUB_OUTPUT
+            echo "Tech debt items found:"
+            cat tech_debt.txt
+          else
+            echo "has_tech_debt=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check for large files
+        id: large-files
+        run: |
+          LARGE_FILES=$(find . -type f -size +1M -not -path './.git/*' -not -path './build/*' -not -path './DerivedData/*' 2>/dev/null || true)
+          if [ -n "$LARGE_FILES" ]; then
+            echo "has_large_files=true" >> $GITHUB_OUTPUT
+            echo "Large files found:"
+            echo "$LARGE_FILES"
+          else
+            echo "has_large_files=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Post review summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            let comments = [];
+            let summary = '## Automated Review Summary\n\n';
+
+            // SwiftLint results
+            try {
+              const lintReport = JSON.parse(fs.readFileSync('swiftlint_report.json', 'utf8'));
+              const warnings = lintReport.filter(i => i.severity === 'Warning').length;
+              const errors = lintReport.filter(i => i.severity === 'Error').length;
+
+              if (errors > 0 || warnings > 0) {
+                summary += `### SwiftLint\n- Errors: ${errors}\n- Warnings: ${warnings}\n\n`;
+              } else {
+                summary += '### SwiftLint\n:white_check_mark: No issues found\n\n';
+              }
+            } catch (e) {
+              summary += '### SwiftLint\n:white_check_mark: No Swift files changed\n\n';
+            }
+
+            // Tech debt check
+            const hasTechDebt = '${{ steps.tech-debt.outputs.has_tech_debt }}' === 'true';
+            if (hasTechDebt) {
+              summary += '### Tech Debt\n:warning: New TODO/FIXME comments detected in changes\n\n';
+            } else {
+              summary += '### Tech Debt\n:white_check_mark: No new tech debt markers\n\n';
+            }
+
+            // Large files check
+            const hasLargeFiles = '${{ steps.large-files.outputs.has_large_files }}' === 'true';
+            if (hasLargeFiles) {
+              summary += '### Large Files\n:warning: Files larger than 1MB detected - consider using Git LFS\n\n';
+            } else {
+              summary += '### Large Files\n:white_check_mark: No large files detected\n\n';
+            }
+
+            // Post comment
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            });

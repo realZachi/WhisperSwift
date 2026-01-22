@@ -1,0 +1,101 @@
+# Continuous Integration workflow for WhisperSwift
+# Runs on every push and pull request
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install SwiftLint
+        run: brew install swiftlint
+
+      - name: Run SwiftLint
+        run: swiftlint lint --config .swiftlint.yml --reporter github-actions-logging
+
+  build:
+    name: Build
+    runs-on: macos-14
+    needs: lint
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Build Debug
+        run: |
+          xcodebuild -project whisperswift.xcodeproj \
+            -scheme whisperswift \
+            -configuration Debug \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            build
+
+      - name: Build Release
+        run: |
+          xcodebuild -project whisperswift.xcodeproj \
+            -scheme whisperswift \
+            -configuration Release \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            build
+
+  validate-agents-md:
+    name: Validate AGENTS.md
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check AGENTS.md exists
+        run: |
+          if [ ! -f "AGENTS.md" ]; then
+            echo "::error::AGENTS.md file is missing"
+            exit 1
+          fi
+
+      - name: Validate AGENTS.md structure
+        run: |
+          # Check for required sections
+          REQUIRED_SECTIONS=("Project Overview" "Build" "Architecture")
+
+          for section in "${REQUIRED_SECTIONS[@]}"; do
+            if ! grep -qi "# .*${section}" AGENTS.md; then
+              echo "::warning::AGENTS.md may be missing section: ${section}"
+            fi
+          done
+
+      - name: Check AGENTS.md freshness
+        run: |
+          # Get last modification date of key source files
+          AGENTS_DATE=$(git log -1 --format="%ct" -- AGENTS.md)
+
+          # Get most recent source file change
+          LATEST_SOURCE=$(git log -1 --format="%ct" -- "whisperswift/*.swift" "whisperswift/**/*.swift")
+
+          # Check if AGENTS.md is older than source by more than 30 days
+          THIRTY_DAYS=$((30 * 24 * 60 * 60))
+          if [ $((LATEST_SOURCE - AGENTS_DATE)) -gt $THIRTY_DAYS ]; then
+            echo "::warning::AGENTS.md may be outdated - source files changed significantly after last AGENTS.md update"
+          fi

@@ -1,0 +1,76 @@
+# Pre-commit hooks configuration for WhisperSwift
+# Install: brew install pre-commit && pre-commit install
+
+repos:
+  # SwiftLint for code quality
+  - repo: https://github.com/realm/SwiftLint
+    rev: 0.54.0
+    hooks:
+      - id: swiftlint
+        args: [--strict, --config, .swiftlint.yml]
+
+  # SwiftFormat for code formatting
+  - repo: https://github.com/nicklockwood/SwiftFormat
+    rev: 0.53.0
+    hooks:
+      - id: swiftformat
+        args: [--config, .swiftformat]
+
+  # General hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      # Large file detection
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+
+      # Prevent secrets from being committed
+      - id: detect-private-key
+
+      # Trailing whitespace
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+
+      # End of file fixer
+      - id: end-of-file-fixer
+
+      # Check YAML files
+      - id: check-yaml
+
+      # Check JSON files
+      - id: check-json
+
+      # Check merge conflicts
+      - id: check-merge-conflict
+
+      # Check for debugger statements
+      - id: debug-statements
+
+      # Mixed line endings
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+  # Detect secrets
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: package-lock\.json|\.env\.example
+
+  # Markdown lint
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.39.0
+    hooks:
+      - id: markdownlint
+        args: [--fix]
+
+  # Shell script linting
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.9.0.6
+    hooks:
+      - id: shellcheck
+
+# Default language version
+default_language_version:
+  python: python3

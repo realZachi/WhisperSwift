@@ -9,10 +9,55 @@ import Cocoa
 import UserNotifications
 import Carbon
 
+/// Scrubs sensitive data from log messages before writing to disk.
+/// Redacts API keys, tokens, and other potentially sensitive patterns.
+private func scrubSensitiveData(_ message: String) -> String {
+    var scrubbed = message
+
+    // Redact API keys (common formats: gsk_*, sk-*, key-*, etc.)
+    let apiKeyPatterns = [
+        "(gsk_)[A-Za-z0-9]{20,}",           // Groq API keys
+        "(sk-)[A-Za-z0-9]{20,}",            // OpenAI-style keys
+        "(key-)[A-Za-z0-9]{20,}",           // Generic API keys
+        "(api[_-]?key[=:]\\s*)[A-Za-z0-9]{16,}", // api_key=xxx or apiKey: xxx
+        "(token[=:]\\s*)[A-Za-z0-9]{16,}",  // token=xxx
+        "(bearer\\s+)[A-Za-z0-9._-]{20,}",  // Bearer tokens
+    ]
+
+    for pattern in apiKeyPatterns {
+        if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
+            let range = NSRange(scrubbed.startIndex..., in: scrubbed)
+            scrubbed = regex.stringByReplacingMatches(
+                in: scrubbed,
+                options: [],
+                range: range,
+                withTemplate: "$1[REDACTED]"
+            )
+        }
+    }
+
+    // Redact email addresses
+    if let emailRegex = try? NSRegularExpression(
+        pattern: "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}",
+        options: .caseInsensitive
+    ) {
+        let range = NSRange(scrubbed.startIndex..., in: scrubbed)
+        scrubbed = emailRegex.stringByReplacingMatches(
+            in: scrubbed,
+            options: [],
+            range: range,
+            withTemplate: "[EMAIL_REDACTED]"
+        )
+    }
+
+    return scrubbed
+}
+
 nonisolated func logToFile(_ message: String) {
     let logFile = "/tmp/whisperswift.log"
     let timestamp = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium)
-    let logMessage = "[\(timestamp)] \(message)\n"
+    let scrubbedMessage = scrubSensitiveData(message)
+    let logMessage = "[\(timestamp)] \(scrubbedMessage)\n"
     guard let data = logMessage.data(using: .utf8) else { return }
     if let handle = FileHandle(forWritingAtPath: logFile) {
         handle.seekToEndOfFile()

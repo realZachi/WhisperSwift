@@ -16,6 +16,13 @@ actor GroqTranscriptionService {
 
     private let defaultModel = "whisper-large-v3-turbo"
     private let cleanupModel = "moonshotai/kimi-k2-instruct-0905"
+    private enum Chunking {
+        static let maxAttachmentBytes = 25 * 1024 * 1024
+        static let targetSegmentSeconds: Double = 30
+        static let overlapSeconds: Double = 2
+        static let maxSingleRequestSeconds: Double = 40
+        static let maxOverlapWords = 12
+    }
 
     init() {
         guard let endpoint = URL(string: "https://api.groq.com/openai/v1/audio/transcriptions"),
@@ -44,58 +51,52 @@ actor GroqTranscriptionService {
 
         let model = resolveModel()
         let language = resolveLanguage()
-        let wavData = makeWavData(samples: recording.samples, sampleRate: Int(recording.sampleRate))
+        let estimatedBytes = estimatedWavSizeBytes(sampleCount: recording.samples.count)
+        let durationSeconds = Double(recording.samples.count) / recording.sampleRate
 
-        var request = URLRequest(url: endpoint)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        let shouldChunk = estimatedBytes > Chunking.maxAttachmentBytes || durationSeconds > Chunking.maxSingleRequestSeconds
 
-        let boundary = "Boundary-\(UUID().uuidString)"
-        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        if !shouldChunk {
+            let wavData = makeWavData(samples: recording.samples, sampleRate: Int(recording.sampleRate))
+            return try await transcribeWavData(
+                wavData,
+                apiKey: apiKey,
+                model: model,
+                language: language,
+                logLabel: nil
+            )
+        }
 
-        let fields: [(String, String)] = {
-            var items: [(String, String)] = [
-                ("model", model),
-                ("temperature", "0"),
-                ("response_format", "verbose_json")
-            ]
-            if let language {
-                items.append(("language", language))
-            }
-            return items
-        }()
-
-        request.httpBody = makeMultipartBody(
-            boundary: boundary,
-            fields: fields,
-            fileFieldName: "file",
-            filename: "recording.wav",
-            mimeType: "audio/wav",
-            fileData: wavData
+        let ranges = makeChunkRanges(
+            sampleCount: recording.samples.count,
+            sampleRate: recording.sampleRate
         )
 
         await MainActor.run {
-            logToFile("🌐 Sending audio to Groq (model: \(model))")
+            let totalSeconds = String(format: "%.2f", durationSeconds)
+            let sizeMB = Double(estimatedBytes) / (1024 * 1024)
+            logToFile("🧩 Chunking audio (\(totalSeconds)s, \(String(format: "%.2f", sizeMB))MB) into \(ranges.count) segments")
         }
 
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw GroqTranscriptionError.invalidResponse
+        var transcripts: [String] = []
+        transcripts.reserveCapacity(ranges.count)
+
+        for (index, range) in ranges.enumerated() {
+            let chunkSamples = Array(recording.samples[range])
+            let wavData = makeWavData(samples: chunkSamples, sampleRate: Int(recording.sampleRate))
+            let label = "chunk \(index + 1)/\(ranges.count)"
+            let chunkText = try await transcribeWavData(
+                wavData,
+                apiKey: apiKey,
+                model: model,
+                language: language,
+                logLabel: label
+            )
+            transcripts.append(chunkText)
         }
 
-        guard (200...299).contains(httpResponse.statusCode) else {
-            let body = String(data: data, encoding: .utf8) ?? ""
-            throw GroqTranscriptionError.requestFailed(statusCode: httpResponse.statusCode, body: body)
-        }
-
-        let decoded = try await MainActor.run {
-            try JSONDecoder().decode(GroqTranscriptionResponse.self, from: data)
-        }
-        let cleaned = cleanTranscriptionArtifacts(decoded.text)
-        await MainActor.run {
-            logToFile("✅ Groq transcription received")
-        }
-        return cleaned
+        let merged = mergeTranscripts(transcripts)
+        return cleanTranscriptionArtifacts(merged)
     }
 
     func cleanTranscription(_ transcript: String, profile: TextCleanupProfile = .default) async throws -> String {
@@ -231,6 +232,73 @@ actor GroqTranscriptionService {
         return body
     }
 
+    private func transcribeWavData(
+        _ wavData: Data,
+        apiKey: String,
+        model: String,
+        language: String?,
+        logLabel: String?
+    ) async throws -> String {
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+
+        let boundary = "Boundary-\(UUID().uuidString)"
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+
+        let fields: [(String, String)] = {
+            var items: [(String, String)] = [
+                ("model", model),
+                ("temperature", "0"),
+                ("response_format", "verbose_json")
+            ]
+            if let language {
+                items.append(("language", language))
+            }
+            return items
+        }()
+
+        request.httpBody = makeMultipartBody(
+            boundary: boundary,
+            fields: fields,
+            fileFieldName: "file",
+            filename: "recording.wav",
+            mimeType: "audio/wav",
+            fileData: wavData
+        )
+
+        await MainActor.run {
+            if let logLabel {
+                logToFile("🌐 Sending audio to Groq (\(logLabel), model: \(model))")
+            } else {
+                logToFile("🌐 Sending audio to Groq (model: \(model))")
+            }
+        }
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw GroqTranscriptionError.invalidResponse
+        }
+
+        guard (200...299).contains(httpResponse.statusCode) else {
+            let body = String(data: data, encoding: .utf8) ?? ""
+            throw GroqTranscriptionError.requestFailed(statusCode: httpResponse.statusCode, body: body)
+        }
+
+        let decoded = try await MainActor.run {
+            try JSONDecoder().decode(GroqTranscriptionResponse.self, from: data)
+        }
+        let cleaned = cleanTranscriptionArtifacts(decoded.text)
+        await MainActor.run {
+            if let logLabel {
+                logToFile("✅ Groq transcription received (\(logLabel))")
+            } else {
+                logToFile("✅ Groq transcription received")
+            }
+        }
+        return cleaned
+    }
+
     private func makeWavData(samples: [Float], sampleRate: Int) -> Data {
         let channels: UInt16 = 1
         let bitsPerSample: UInt16 = 16
@@ -262,6 +330,89 @@ actor GroqTranscriptionService {
         }
 
         return data
+    }
+
+    private func estimatedWavSizeBytes(sampleCount: Int) -> Int {
+        let headerSize = 44
+        let bytesPerSample = 2
+        return headerSize + sampleCount * bytesPerSample
+    }
+
+    private func makeChunkRanges(sampleCount: Int, sampleRate: Double) -> [Range<Int>] {
+        guard sampleCount > 0 else { return [] }
+
+        let samplesPerSecond = max(1, Int(sampleRate.rounded()))
+        let chunkSamples = max(1, Int(Chunking.targetSegmentSeconds * Double(samplesPerSecond)))
+        let overlapSamples = max(0, Int(Chunking.overlapSeconds * Double(samplesPerSecond)))
+        let step = max(1, chunkSamples - overlapSamples)
+
+        var ranges: [Range<Int>] = []
+        var start = 0
+
+        while start < sampleCount {
+            let end = min(start + chunkSamples, sampleCount)
+            ranges.append(start..<end)
+            if end == sampleCount {
+                break
+            }
+            start += step
+        }
+
+        return ranges
+    }
+
+    private func mergeTranscripts(_ transcripts: [String]) -> String {
+        var combined = ""
+        for chunk in transcripts {
+            let trimmed = chunk.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+            if combined.isEmpty {
+                combined = trimmed
+            } else {
+                combined = mergeOverlap(existing: combined, next: trimmed)
+            }
+        }
+        return combined
+    }
+
+    private func mergeOverlap(existing: String, next: String) -> String {
+        let existingWords = existing.split(whereSeparator: { $0.isWhitespace }).map(String.init)
+        let nextWords = next.split(whereSeparator: { $0.isWhitespace }).map(String.init)
+
+        guard !existingWords.isEmpty, !nextWords.isEmpty else {
+            return existing.isEmpty ? next : existing
+        }
+
+        let normalizedExisting = existingWords.map(normalizeWord)
+        let normalizedNext = nextWords.map(normalizeWord)
+
+        let maxOverlap = min(Chunking.maxOverlapWords, normalizedExisting.count, normalizedNext.count)
+        var overlapCount = 0
+
+        if maxOverlap > 0 {
+            for count in stride(from: maxOverlap, through: 1, by: -1) {
+                let existingSuffix = normalizedExisting.suffix(count)
+                let nextPrefix = normalizedNext.prefix(count)
+                if Array(existingSuffix) == Array(nextPrefix) {
+                    overlapCount = count
+                    break
+                }
+            }
+        }
+
+        let appended = overlapCount > 0 ? nextWords.dropFirst(overlapCount) : nextWords[...]
+        guard !appended.isEmpty else { return existing }
+
+        let appendedText = appended.joined(separator: " ")
+        return existing + " " + appendedText
+    }
+
+    private func normalizeWord(_ word: String) -> String {
+        let scalars = word.unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) }
+        if scalars.isEmpty {
+            return word.lowercased()
+        }
+        return String(String.UnicodeScalarView(scalars)).lowercased()
     }
 
     private func cleanTranscriptionArtifacts(_ text: String) -> String {

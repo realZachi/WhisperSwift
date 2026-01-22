@@ -18,12 +18,33 @@ open whisperswift.xcodeproj
 
 # Build from CLI
 xcodebuild -project whisperswift.xcodeproj -scheme whisperswift -configuration Debug build
+
+# Build with timing (recommended for performance tracking)
+./scripts/build-with-timing.sh          # Debug build
+./scripts/build-with-timing.sh Release  # Release build
 ```
 
 **IMPORTANT**: After every code change that requires a build (Swift files, resources, project settings), you MUST automatically build with:
 ```bash
 xcodebuild -project whisperswift.xcodeproj -scheme whisperswift -configuration Debug build
 ```
+
+### Build Timing Flags
+
+For performance analysis, use these xcodebuild flags:
+
+```bash
+# Show build timing summary
+xcodebuild ... -showBuildTimingSummary
+
+# Show detailed Swift compilation times
+xcodebuild ... -showBuildTimingSummary OTHER_SWIFT_FLAGS="-Xfrontend -debug-time-compilation"
+
+# Profile function body type-checking
+xcodebuild ... OTHER_SWIFT_FLAGS="-Xfrontend -debug-time-function-bodies"
+```
+
+See `docs/BUILD_PERFORMANCE.md` for comprehensive build performance documentation.
 
 No test target exists currently. If adding tests, use XCTest and place files under a `whisperswiftTests/` target.
 

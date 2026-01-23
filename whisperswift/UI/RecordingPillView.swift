@@ -102,7 +102,6 @@ struct RecordingPillView: View {
 
     private var legacyGlassContent: some View {
         ZStack {
-            // Frosted glass background
             Capsule()
                 .fill(.ultraThinMaterial)
                 .overlay(
@@ -123,7 +122,6 @@ struct RecordingPillView: View {
                 .shadow(color: Color.black.opacity(0.25), radius: 20, y: 8)
                 .shadow(color: Color.black.opacity(0.1), radius: 1, y: 1)
 
-            // Content
             HStack(spacing: 14) {
                 switch state {
                 case .recording:
@@ -162,7 +160,6 @@ struct RecordingPillView: View {
             AppleSpinnerView()
                 .frame(width: 20, height: 20)
 
-            // Three animated dots
             ProcessingDotsView()
         }
     }

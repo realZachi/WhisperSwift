@@ -392,12 +392,11 @@ Flags may appear dead but still be valid if:
 
 ### Performance Concerns
 
-- The service uses caching to minimize UserDefaults reads
-- Boolean checks are essentially free after initial load
+- Reads go directly to UserDefaults, which is optimized by the system
 - For hot paths, consider caching the flag value locally
 
 ### Thread Safety
 
-- `LocalFeatureFlagService` is an actor, ensuring thread-safe mutations
-- `nonisolated` read methods can be called from any context
+- `LocalFeatureFlagService` is an actor with `nonisolated(unsafe)` UserDefaults access
+- UserDefaults is thread-safe, allowing synchronous access from any context
 - Value types (enums, structs) ensure data safety

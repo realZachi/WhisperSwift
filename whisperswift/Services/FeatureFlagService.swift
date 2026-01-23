@@ -52,7 +52,7 @@ protocol FeatureFlagProvider: Sendable {
 actor LocalFeatureFlagService: FeatureFlagProvider {
     static let shared = LocalFeatureFlagService()
 
-    private let userDefaults: UserDefaults
+    private nonisolated(unsafe) let userDefaults: UserDefaults
     private let keyPrefix = "whisperswift.featureflag."
 
     init(userDefaults: UserDefaults = .standard) {

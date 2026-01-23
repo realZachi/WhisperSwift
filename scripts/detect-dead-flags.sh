@@ -29,6 +29,15 @@ FLAGS=$(awk '/^enum FeatureFlag:/,/^enum FeatureFlagCategory/ { if (/case [a-zA-
     sed -E 's/.*case ([a-zA-Z]+).*/\1/' | \
     grep -v "^$")
 
+if [ -z "$FLAGS" ]; then
+    echo -e "${RED}Error: No feature flags found in FeatureFlags.swift${NC}"
+    echo "This may indicate a parsing failure. Check file format."
+    exit 1
+fi
+
+FLAG_COUNT=$(echo "$FLAGS" | wc -l | tr -d ' ')
+echo "Found $FLAG_COUNT feature flags to analyze."
+
 DEAD_FLAGS=()
 USED_FLAGS=()
 
@@ -36,26 +45,15 @@ echo "Scanning for feature flag usage..."
 echo ""
 
 for flag in $FLAGS; do
-    # Search for usage in Swift files, excluding:
-    # - FeatureFlags.swift (definition file)
-    # - Test files
-    # - Comments
-
-    # Look for patterns like:
-    # - .flagName
-    # - FeatureFlag.flagName
-    # - isFeatureEnabled(.flagName)
-
     USAGE_COUNT=$(grep -r --include="*.swift" \
         -E "\.$flag\b" \
-        "$PROJECT_ROOT/whisperswift" \
-        2>/dev/null | \
+        "$PROJECT_ROOT/whisperswift" | \
         grep -v "FeatureFlags.swift" | \
         grep -v "Tests/" | \
         grep -v "case $flag" | \
         grep -v "case \.$flag:" | \
         grep -v "^[[:space:]]*//.*\.$flag" | \
-        wc -l | tr -d ' ')
+        wc -l | tr -d ' ' || echo "0")
 
     if [ "$USAGE_COUNT" -eq 0 ]; then
         DEAD_FLAGS+=("$flag")

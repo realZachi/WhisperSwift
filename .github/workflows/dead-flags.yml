@@ -26,8 +26,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Full history for age detection
 
       - name: Run Dead Flag Detection
         id: detect
@@ -35,8 +33,8 @@ jobs:
           chmod +x scripts/detect-dead-flags.sh
           ./scripts/detect-dead-flags.sh 2>&1 | tee dead-flags-report.txt
 
-          # Count dead flags for summary
-          DEAD_COUNT=$(grep -c "^  - " dead-flags-report.txt | head -1 || echo "0")
+          # Extract dead count from Summary section
+          DEAD_COUNT=$(grep "Potentially dead:" dead-flags-report.txt | grep -oE '[0-9]+' || echo "0")
           echo "dead_count=$DEAD_COUNT" >> $GITHUB_OUTPUT
 
       - name: Generate Summary

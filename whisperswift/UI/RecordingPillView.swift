@@ -62,17 +62,20 @@ struct RecordingPillView: View {
 
     @ViewBuilder
     private var pillContent: some View {
+        #if compiler(>=6.2)
         if #available(macOS 26.0, *) {
-            // Liquid Glass version for macOS 26+
             liquidGlassContent
         } else {
-            // Fallback for older macOS
             legacyGlassContent
         }
+        #else
+        legacyGlassContent
+        #endif
     }
 
     // MARK: - Liquid Glass (macOS 26+)
 
+    #if compiler(>=6.2)
     @available(macOS 26.0, *)
     private var liquidGlassContent: some View {
         GlassEffectContainer {
@@ -93,6 +96,7 @@ struct RecordingPillView: View {
         }
         .animation(.smooth(duration: 0.4), value: state)
     }
+    #endif
 
     // MARK: - Legacy Glass (macOS 13-25)
 

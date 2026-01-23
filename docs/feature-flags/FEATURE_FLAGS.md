@@ -337,6 +337,44 @@ actor RemoteFeatureFlagService: FeatureFlagProvider {
 | `enhancedAccessibilityAnnouncements` | Accessibility | `false` | Enhanced VoiceOver |
 | `alternativeTextInsertion` | Accessibility | `false` | Alternative text insertion |
 
+## Dead Flag Detection
+
+The project includes automated tooling to detect potentially unused feature flags.
+
+### Running Locally
+
+```bash
+./scripts/detect-dead-flags.sh
+```
+
+### CI Integration
+
+Dead flag detection runs automatically:
+- On every push to `main` that modifies feature flag files
+- On every PR that touches Swift files
+- Weekly on Mondays (scheduled)
+
+The workflow generates a report and comments on PRs when dead flags are detected.
+
+### What Counts as "Dead"
+
+A flag is considered potentially dead if:
+- No `.flagName` usage exists outside `FeatureFlags.swift`
+- No usage in production code (test files are excluded)
+
+Flags may appear dead but still be valid if:
+- Accessed via string `rawValue`
+- Used only in debug/test configurations
+- Recently added and pending integration
+
+### Removing Dead Flags
+
+1. Verify the flag is truly unused (check tests, debug code)
+2. Remove the `case` from `FeatureFlag` enum
+3. Remove corresponding `defaultValue`, `description`, and `category` entries
+4. Search for any string-based references to the raw value
+5. Run tests to ensure nothing breaks
+
 ## Troubleshooting
 
 ### Flag Not Taking Effect

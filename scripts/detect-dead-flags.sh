@@ -82,7 +82,6 @@ fi
 echo ""
 echo -e "${GREEN}Active Feature Flags (${#USED_FLAGS[@]} in use):${NC}"
 for flag in "${USED_FLAGS[@]}"; do
-    # Count usage
     COUNT=$(grep -r --include="*.swift" -E "\.$flag\b" "$PROJECT_ROOT/whisperswift" 2>/dev/null | \
         grep -v "FeatureFlags.swift" | grep -v "Tests/" | wc -l | tr -d ' ')
     echo "  - $flag ($COUNT usages)"

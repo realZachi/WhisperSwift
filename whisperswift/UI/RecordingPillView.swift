@@ -62,17 +62,20 @@ struct RecordingPillView: View {
 
     @ViewBuilder
     private var pillContent: some View {
+        #if compiler(>=6.2)
         if #available(macOS 26.0, *) {
-            // Liquid Glass version for macOS 26+
             liquidGlassContent
         } else {
-            // Fallback for older macOS
             legacyGlassContent
         }
+        #else
+        legacyGlassContent
+        #endif
     }
 
     // MARK: - Liquid Glass (macOS 26+)
 
+    #if compiler(>=6.2)
     @available(macOS 26.0, *)
     private var liquidGlassContent: some View {
         GlassEffectContainer {
@@ -93,12 +96,12 @@ struct RecordingPillView: View {
         }
         .animation(.smooth(duration: 0.4), value: state)
     }
+    #endif
 
     // MARK: - Legacy Glass (macOS 13-25)
 
     private var legacyGlassContent: some View {
         ZStack {
-            // Frosted glass background
             Capsule()
                 .fill(.ultraThinMaterial)
                 .overlay(
@@ -119,7 +122,6 @@ struct RecordingPillView: View {
                 .shadow(color: Color.black.opacity(0.25), radius: 20, y: 8)
                 .shadow(color: Color.black.opacity(0.1), radius: 1, y: 1)
 
-            // Content
             HStack(spacing: 14) {
                 switch state {
                 case .recording:
@@ -158,7 +160,6 @@ struct RecordingPillView: View {
             AppleSpinnerView()
                 .frame(width: 20, height: 20)
 
-            // Three animated dots
             ProcessingDotsView()
         }
     }

@@ -1,0 +1,68 @@
+# Dead Feature Flag Detection
+# Runs periodically and on PRs to detect unused feature flags
+
+name: Dead Flag Detection
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'whisperswift/FeatureFlags.swift'
+      - 'whisperswift/**/*.swift'
+  pull_request:
+    paths:
+      - 'whisperswift/FeatureFlags.swift'
+      - 'whisperswift/**/*.swift'
+  schedule:
+    # Run weekly on Mondays
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+jobs:
+  detect-dead-flags:
+    name: Detect Dead Flags
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Dead Flag Detection
+        id: detect
+        run: |
+          chmod +x scripts/detect-dead-flags.sh
+          ./scripts/detect-dead-flags.sh 2>&1 | tee dead-flags-report.txt
+
+          # Extract dead count from Summary section
+          DEAD_COUNT=$(grep "Potentially dead:" dead-flags-report.txt | grep -oE '[0-9]+' || echo "0")
+          echo "dead_count=$DEAD_COUNT" >> $GITHUB_OUTPUT
+
+      - name: Generate Summary
+        run: |
+          echo "### Feature Flag Status" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat dead-flags-report.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: dead-flags-report
+          path: dead-flags-report.txt
+          retention-days: 30
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request' && steps.detect.outputs.dead_count != '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('dead-flags-report.txt', 'utf8');
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `### Feature Flag Analysis\n\n\`\`\`\n${report}\n\`\`\`\n\n_This check runs automatically when feature flag files change._`
+            });

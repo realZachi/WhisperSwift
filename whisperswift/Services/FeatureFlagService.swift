@@ -52,7 +52,7 @@ protocol FeatureFlagProvider: Sendable {
 actor LocalFeatureFlagService: FeatureFlagProvider {
     static let shared = LocalFeatureFlagService()
 
-    private let userDefaults: UserDefaults
+    private nonisolated(unsafe) let userDefaults: UserDefaults
     private let keyPrefix = "whisperswift.featureflag."
 
     init(userDefaults: UserDefaults = .standard) {
@@ -87,7 +87,7 @@ actor LocalFeatureFlagService: FeatureFlagProvider {
         return nil
     }
 
-    func setValue(_ value: FeatureFlagValue, for flag: FeatureFlag) {
+    nonisolated func setValue(_ value: FeatureFlagValue, for flag: FeatureFlag) {
         let key = keyPrefix + flag.rawValue
 
         switch value {
@@ -104,13 +104,13 @@ actor LocalFeatureFlagService: FeatureFlagProvider {
         logToFile("Feature flag '\(flag.rawValue)' set to \(value)")
     }
 
-    func resetToDefault(_ flag: FeatureFlag) {
+    nonisolated func resetToDefault(_ flag: FeatureFlag) {
         let key = keyPrefix + flag.rawValue
         userDefaults.removeObject(forKey: key)
         logToFile("Feature flag '\(flag.rawValue)' reset to default")
     }
 
-    func resetAllToDefaults() {
+    nonisolated func resetAllToDefaults() {
         for flag in FeatureFlag.allCases {
             let key = keyPrefix + flag.rawValue
             userDefaults.removeObject(forKey: key)

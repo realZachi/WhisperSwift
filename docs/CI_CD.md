@@ -7,7 +7,9 @@ GitHub Actions workflows in `.github/workflows/`:
 | `pr.yml` | Pull requests | All PR checks (lint, duplicates, build, tests) |
 | `ci.yml` | Push to main | Full CI pipeline |
 | `docs.yml` | Push to main | Documentation generation and publishing |
-| `release.yml` | Tags | Release build, notarization, DMG generation |
+
+Releases are built locally with Developer ID signing and Apple notarization by
+following `.release.md`. Tag pushes must not build or replace release assets.
 
 ## Local Pre-Commit Hook
 

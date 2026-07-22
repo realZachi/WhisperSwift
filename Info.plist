@@ -9,6 +9,12 @@
     <key>CFBundleName</key>
     <string>WhisperSwift</string>
 
+    <key>CFBundleExecutable</key>
+    <string>$(EXECUTABLE_NAME)</string>
+
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+
     <key>CFBundleShortVersionString</key>
     <string>$(MARKETING_VERSION)</string>
 

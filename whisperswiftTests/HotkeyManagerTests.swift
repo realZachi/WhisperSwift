@@ -5,11 +5,55 @@
 //  Tests for HotkeyManager service
 //
 
-import XCTest
 @testable import whisperswift
+import XCTest
+
+final class HotkeyConfigurationTests: XCTestCase {
+    private var defaults: UserDefaults!
+
+    override func setUp() {
+        super.setUp()
+        defaults = UserDefaults(suiteName: "HotkeyConfigurationTests")
+        defaults.removePersistentDomain(forName: "HotkeyConfigurationTests")
+    }
+
+    override func tearDown() {
+        defaults.removePersistentDomain(forName: "HotkeyConfigurationTests")
+        defaults = nil
+        super.tearDown()
+    }
+
+    func test_CurrentConfiguration_DefaultsToFn() {
+        let configuration = HotkeyConfiguration.current(in: defaults)
+
+        XCTAssertEqual(configuration.keyCode, HotkeyConfiguration.defaultKeyCode)
+        XCTAssertEqual(configuration.displayName, "Fn (Globe)")
+    }
+
+    func test_CurrentConfiguration_MigratesLegacyOptionSelection() {
+        defaults.set("option", forKey: HotkeyConfiguration.legacyDefaultsKey)
+
+        let configuration = HotkeyConfiguration.current(in: defaults)
+
+        XCTAssertEqual(configuration.displayName, "Right Option")
+    }
+
+    func test_SavePersistsAnArbitraryKey() {
+        HotkeyConfiguration.save(keyCode: 0, displayName: "A", in: defaults)
+
+        XCTAssertEqual(
+            HotkeyConfiguration.current(in: defaults),
+            HotkeyConfiguration(keyCode: 0, displayName: "A")
+        )
+        XCTAssertEqual(defaults.string(forKey: HotkeyConfiguration.legacyDefaultsKey), "custom")
+    }
+
+    func test_CapsLockIsRejectedForHoldToRecord() {
+        XCTAssertFalse(HotkeyConfiguration.isSupported(57))
+    }
+}
 
 final class HotkeyManagerTests: XCTestCase {
-
     // MARK: - Hotkey Configuration Tests
 
     func test_SelectedHotkey_DefaultValue_IsFn() {
@@ -226,9 +270,8 @@ final class HotkeyManagerTests: XCTestCase {
 // MARK: - Accessibility Permission Tests
 
 final class AccessibilityPermissionTests: XCTestCase {
-
     func test_AccessibilityCheck_ReturnsBoolean() {
-        let permissionGranted: Bool = false
+        let permissionGranted = false
         XCTAssertFalse(permissionGranted)
     }
 

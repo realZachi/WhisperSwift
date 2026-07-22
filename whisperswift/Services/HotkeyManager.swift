@@ -5,90 +5,136 @@
 //  Created by Mahmoud Ali Khan on 14.01.26.
 //
 
-import Cocoa
 import Carbon
+import Cocoa
 
-class HotkeyManager {
+final class HotkeyManager {
     private var flagsMonitor: Any?
     private var localMonitor: Any?
+    private var eventTap: CFMachPort?
+    private var eventTapRunLoopSource: CFRunLoopSource?
+    private var eventTapRunLoop: CFRunLoop?
+    private var captureObservers: [NSObjectProtocol] = []
     private var isKeyDown = false
+    private var isCapturingHotkey = false
+    private var ignoredModifierReleaseKeyCode: UInt16?
 
     var onKeyDown: (() -> Void)?
     var onKeyUp: (() -> Void)?
 
-    // Selected hotkey from UserDefaults - default to "fn" for menu bar behavior
-    private var selectedHotkey: String {
-        UserDefaults.standard.string(forKey: "selectedHotkey") ?? "fn"
-    }
-
     init(onKeyDown: @escaping () -> Void, onKeyUp: @escaping () -> Void) {
         self.onKeyDown = onKeyDown
         self.onKeyUp = onKeyUp
+        observeHotkeyCapture()
         setupMonitor()
     }
 
     deinit {
         stopMonitoring()
+        captureObservers.forEach(NotificationCenter.default.removeObserver)
     }
 
     private func setupMonitor() {
-        logToFile("🎹 Setting up hotkey monitor for: \(selectedHotkey)")
+        logToFile("🎹 Setting up hotkey monitor for: \(HotkeyConfiguration.current.displayName)")
 
         // Try CGEvent tap first (more reliable for Fn key)
-        if HotkeyManager.checkAccessibilityPermission() {
+        if HotkeyManager.checkAccessibilityPermission(), setupCGEventMonitor() {
             logToFile("🎹 Using CGEvent tap (Accessibility granted)")
-            setupCGEventMonitor()
         } else {
             logToFile("🎹 Accessibility not granted, using NSEvent monitor (limited)")
-        }
-
-        // Also add NSEvent monitors as backup
-        flagsMonitor = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
-            self?.handleFlagsChanged(event)
-        }
-
-        // Also add local monitor for when app is focused
-        localMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
-            self?.handleFlagsChanged(event)
-            return event
+            setupNSEventMonitors()
         }
 
         logToFile("🎹 Hotkey monitors initialized")
     }
 
-    private func handleFlagsChanged(_ event: NSEvent) {
-        let keyPressed: Bool
-        let rawFlags = event.modifierFlags.rawValue
+    private func setupNSEventMonitors() {
+        let eventTypes: NSEvent.EventTypeMask = [.flagsChanged, .keyDown, .keyUp]
 
-        switch selectedHotkey {
-        case "fn":
-            // Check for Function key (Globe key on newer Macs)
-            keyPressed = event.modifierFlags.contains(.function)
-        case "option":
-            // Right Option key - check for option modifier
-            // Note: NSEvent doesn't distinguish left/right option easily
-            keyPressed = event.modifierFlags.contains(.option)
-        case "control":
-            // Right Control key
-            keyPressed = event.modifierFlags.contains(.control)
+        flagsMonitor = NSEvent.addGlobalMonitorForEvents(matching: eventTypes) { [weak self] event in
+            _ = self?.handleNSEvent(event)
+        }
+
+        localMonitor = NSEvent.addLocalMonitorForEvents(matching: eventTypes) { [weak self] event in
+            self?.handleNSEvent(event) == true ? nil : event
+        }
+    }
+
+    private func handleNSEvent(_ event: NSEvent) -> Bool {
+        guard !isCapturingHotkey else { return false }
+
+        let configuration = HotkeyConfiguration.current
+        guard event.keyCode == configuration.keyCode else { return false }
+
+        if HotkeyConfiguration.isModifier(configuration.keyCode) {
+            guard event.type == .flagsChanged else { return false }
+            if ignoredModifierReleaseKeyCode == configuration.keyCode {
+                ignoredModifierReleaseKeyCode = nil
+                return true
+            }
+            updateKeyState(isPressed: !isKeyDown, source: "NSEvent")
+            return true
+        }
+
+        switch event.type {
+        case .keyDown:
+            if !event.isARepeat {
+                updateKeyState(isPressed: true, source: "NSEvent")
+            }
+        case .keyUp:
+            updateKeyState(isPressed: false, source: "NSEvent")
         default:
-            keyPressed = event.modifierFlags.contains(.function)
+            return false
         }
 
-        // Log raw flags for debugging
-        if keyPressed != isKeyDown {
-            logToFile("🎹 NSEvent flags: \(rawFlags), keyPressed: \(keyPressed), isKeyDown: \(isKeyDown)")
-        }
+        return true
+    }
 
-        if keyPressed && !isKeyDown {
-            // Key pressed down
-            isKeyDown = true
+    private func updateKeyState(isPressed: Bool, source: String) {
+        guard isPressed != isKeyDown else { return }
+
+        isKeyDown = isPressed
+        logToFile("🎹 \(source): \(isPressed ? "Key DOWN" : "Key UP")")
+
+        if isPressed {
             onKeyDown?()
-        } else if !keyPressed && isKeyDown {
-            // Key released
-            isKeyDown = false
+        } else {
             onKeyUp?()
         }
+    }
+
+    private func observeHotkeyCapture() {
+        let center = NotificationCenter.default
+        let beginObserver = center.addObserver(
+            forName: .hotkeyCaptureDidBegin,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.setHotkeyCaptureActive(true)
+        }
+        let endObserver = center.addObserver(
+            forName: .hotkeyCaptureDidEnd,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            let capturedKeyCode = (notification.object as? NSNumber).flatMap {
+                UInt16(exactly: $0.intValue)
+            }
+            self?.setHotkeyCaptureActive(false, capturedKeyCode: capturedKeyCode)
+        }
+        captureObservers = [beginObserver, endObserver]
+    }
+
+    private func setHotkeyCaptureActive(_ isActive: Bool, capturedKeyCode: UInt16? = nil) {
+        if isActive, isKeyDown {
+            updateKeyState(isPressed: false, source: "Hotkey capture")
+        }
+        if !isActive,
+           let capturedKeyCode,
+           HotkeyConfiguration.isModifier(capturedKeyCode) {
+            ignoredModifierReleaseKeyCode = capturedKeyCode
+        }
+        isCapturingHotkey = isActive
     }
 
     func stopMonitoring() {
@@ -99,6 +145,16 @@ class HotkeyManager {
         if let monitor = localMonitor {
             NSEvent.removeMonitor(monitor)
             localMonitor = nil
+        }
+        if let eventTap {
+            CGEvent.tapEnable(tap: eventTap, enable: false)
+            CFMachPortInvalidate(eventTap)
+            self.eventTap = nil
+        }
+        if let eventTapRunLoopSource, let eventTapRunLoop {
+            CFRunLoopRemoveSource(eventTapRunLoop, eventTapRunLoopSource, .commonModes)
+            self.eventTapRunLoopSource = nil
+            self.eventTapRunLoop = nil
         }
     }
 
@@ -113,66 +169,75 @@ class HotkeyManager {
 extension HotkeyManager {
     /// Alternative setup using CGEvent tap for more reliable key detection
     /// This requires accessibility permissions
-    func setupCGEventMonitor() {
+    func setupCGEventMonitor() -> Bool {
         logToFile("🎹 Creating CGEvent tap...")
         let eventMask = (1 << CGEventType.flagsChanged.rawValue)
+            | (1 << CGEventType.keyDown.rawValue)
+            | (1 << CGEventType.keyUp.rawValue)
 
         guard let eventTap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
             place: .headInsertEventTap,
             options: .defaultTap,
             eventsOfInterest: CGEventMask(eventMask),
-            callback: { proxy, type, event, refcon in
-                guard let refcon = refcon else { return Unmanaged.passRetained(event) }
+            callback: { _, type, event, refcon in
+                guard let refcon = refcon else { return Unmanaged.passUnretained(event) }
                 let manager = Unmanaged<HotkeyManager>.fromOpaque(refcon).takeUnretainedValue()
-                manager.handleCGEvent(event)
-                return Unmanaged.passRetained(event)
+                let shouldConsumeEvent = manager.handleCGEvent(event, type: type)
+                return shouldConsumeEvent ? nil : Unmanaged.passUnretained(event)
             },
             userInfo: Unmanaged.passUnretained(self).toOpaque()
         ) else {
             logToFile("❌ Failed to create CGEvent tap. Check accessibility permissions.")
-            return
+            return false
         }
 
         let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0)
-        CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
+        let runLoop = CFRunLoopGetCurrent()
+        CFRunLoopAddSource(runLoop, runLoopSource, .commonModes)
         CGEvent.tapEnable(tap: eventTap, enable: true)
+        self.eventTap = eventTap
+        eventTapRunLoopSource = runLoopSource
+        eventTapRunLoop = runLoop
         logToFile("✅ CGEvent tap created and enabled")
+        return true
     }
 
-    private func handleCGEvent(_ event: CGEvent) {
-        let flags = event.flags
-        let rawFlags = flags.rawValue
+    private func handleCGEvent(_ event: CGEvent, type: CGEventType) -> Bool {
+        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            if let eventTap {
+                CGEvent.tapEnable(tap: eventTap, enable: true)
+            }
+            return false
+        }
 
-        let keyPressed: Bool
-        switch selectedHotkey {
-        case "fn":
-            keyPressed = flags.contains(.maskSecondaryFn)
-        case "option":
-            keyPressed = flags.contains(.maskAlternate)
-        case "control":
-            keyPressed = flags.contains(.maskControl)
+        guard !isCapturingHotkey else { return false }
+
+        let configuration = HotkeyConfiguration.current
+        let keyCode = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
+        guard keyCode == configuration.keyCode else { return false }
+
+        if HotkeyConfiguration.isModifier(configuration.keyCode) {
+            guard type == .flagsChanged else { return false }
+            if ignoredModifierReleaseKeyCode == configuration.keyCode {
+                ignoredModifierReleaseKeyCode = nil
+                return true
+            }
+            updateKeyState(isPressed: !isKeyDown, source: "CGEvent")
+            return true
+        }
+
+        switch type {
+        case .keyDown:
+            if event.getIntegerValueField(.keyboardEventAutorepeat) == 0 {
+                updateKeyState(isPressed: true, source: "CGEvent")
+            }
+        case .keyUp:
+            updateKeyState(isPressed: false, source: "CGEvent")
         default:
-            keyPressed = flags.contains(.maskSecondaryFn)
+            return false
         }
 
-        // Log for debugging
-        if keyPressed != isKeyDown {
-            logToFile("🎹 CGEvent flags: \(rawFlags), keyPressed: \(keyPressed), hotkey: \(selectedHotkey)")
-        }
-
-        if keyPressed && !isKeyDown {
-            isKeyDown = true
-            logToFile("⬇️ CGEvent: Key DOWN")
-            DispatchQueue.main.async { [weak self] in
-                self?.onKeyDown?()
-            }
-        } else if !keyPressed && isKeyDown {
-            isKeyDown = false
-            logToFile("⬆️ CGEvent: Key UP")
-            DispatchQueue.main.async { [weak self] in
-                self?.onKeyUp?()
-            }
-        }
+        return true
     }
 }

@@ -144,18 +144,7 @@ class StatusBarController {
     }
 
     private func updateHotkeyMenuItem() {
-        let hotkey = UserDefaults.standard.string(forKey: "selectedHotkey") ?? "fn"
-        let keyName: String
-
-        switch hotkey {
-        case "option":
-            keyName = "Option"
-        case "control":
-            keyName = "Control"
-        default:
-            keyName = "Fn"
-        }
-
+        let keyName = HotkeyConfiguration.current.displayName
         let title = "Hold \(keyName) to record, double-tap to lock"
 
         if let menu = statusItem.menu,

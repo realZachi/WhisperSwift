@@ -7,6 +7,14 @@ import AppKit
 import Carbon
 
 struct HotkeyConfiguration: Equatable {
+    private enum Modifier {
+        case command
+        case shift
+        case option
+        case control
+        case function
+    }
+
     static let keyCodeDefaultsKey = "selectedHotkeyKeyCode"
     static let displayNameDefaultsKey = "selectedHotkeyDisplayName"
     static let legacyDefaultsKey = "selectedHotkey"
@@ -56,18 +64,62 @@ struct HotkeyConfiguration: Equatable {
     }
 
     static func isModifier(_ keyCode: UInt16) -> Bool {
+        modifier(for: keyCode) != nil
+    }
+
+    private static func modifier(for keyCode: UInt16) -> Modifier? {
         switch Int(keyCode) {
-        case kVK_Command,
-             kVK_Shift,
-             kVK_Option,
-             kVK_Control,
-             kVK_RightCommand,
-             kVK_RightShift,
-             kVK_RightOption,
-             kVK_RightControl,
-             kVK_Function:
-            return true
+        case kVK_Command, kVK_RightCommand:
+            return .command
+        case kVK_Shift, kVK_RightShift:
+            return .shift
+        case kVK_Option, kVK_RightOption:
+            return .option
+        case kVK_Control, kVK_RightControl:
+            return .control
+        case kVK_Function:
+            return .function
         default:
+            return nil
+        }
+    }
+
+    static func isModifierPressed(
+        _ keyCode: UInt16,
+        in flags: NSEvent.ModifierFlags
+    ) -> Bool {
+        switch modifier(for: keyCode) {
+        case .command:
+            return flags.contains(.command)
+        case .shift:
+            return flags.contains(.shift)
+        case .option:
+            return flags.contains(.option)
+        case .control:
+            return flags.contains(.control)
+        case .function:
+            return flags.contains(.function)
+        case nil:
+            return false
+        }
+    }
+
+    static func isModifierPressed(
+        _ keyCode: UInt16,
+        in flags: CGEventFlags
+    ) -> Bool {
+        switch modifier(for: keyCode) {
+        case .command:
+            return flags.contains(.maskCommand)
+        case .shift:
+            return flags.contains(.maskShift)
+        case .option:
+            return flags.contains(.maskAlternate)
+        case .control:
+            return flags.contains(.maskControl)
+        case .function:
+            return flags.contains(.maskSecondaryFn)
+        case nil:
             return false
         }
     }

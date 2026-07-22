@@ -6,6 +6,7 @@
 //
 
 @testable import whisperswift
+import AppKit
 import XCTest
 
 final class HotkeyConfigurationTests: XCTestCase {
@@ -50,6 +51,30 @@ final class HotkeyConfigurationTests: XCTestCase {
 
     func test_CapsLockIsRejectedForHoldToRecord() {
         XCTAssertFalse(HotkeyConfiguration.isSupported(57))
+    }
+
+    func test_ModifierPressDetection_RecognizesAppKitFlags() {
+        XCTAssertTrue(HotkeyConfiguration.isModifierPressed(55, in: [.command]))
+        XCTAssertTrue(HotkeyConfiguration.isModifierPressed(58, in: [.option]))
+        XCTAssertTrue(HotkeyConfiguration.isModifierPressed(59, in: [.control]))
+        XCTAssertTrue(HotkeyConfiguration.isModifierPressed(56, in: [.shift]))
+        XCTAssertTrue(HotkeyConfiguration.isModifierPressed(63, in: [.function]))
+    }
+
+    func test_ModifierPressDetection_RejectsReleasedAppKitFlags() {
+        let noFlags = NSEvent.ModifierFlags()
+
+        XCTAssertFalse(HotkeyConfiguration.isModifierPressed(55, in: noFlags))
+        XCTAssertFalse(HotkeyConfiguration.isModifierPressed(58, in: noFlags))
+        XCTAssertFalse(HotkeyConfiguration.isModifierPressed(63, in: noFlags))
+    }
+
+    func test_ModifierPressDetection_RecognizesCGEventFlags() {
+        XCTAssertTrue(HotkeyConfiguration.isModifierPressed(55, in: [.maskCommand]))
+        XCTAssertTrue(HotkeyConfiguration.isModifierPressed(58, in: [.maskAlternate]))
+        XCTAssertTrue(HotkeyConfiguration.isModifierPressed(59, in: [.maskControl]))
+        XCTAssertTrue(HotkeyConfiguration.isModifierPressed(56, in: [.maskShift]))
+        XCTAssertTrue(HotkeyConfiguration.isModifierPressed(63, in: [.maskSecondaryFn]))
     }
 }
 

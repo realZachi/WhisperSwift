@@ -89,7 +89,8 @@ Detects global hotkey presses using:
 - `NSEvent` global monitors
 - `CGEvent` tap for low-level detection
 
-Supports configurable hotkeys: Fn, Option, Control
+Supports a configurable push-to-talk key recorded in Settings, including standard keys,
+function keys, and left/right modifier keys.
 
 ### AudioRecorder
 

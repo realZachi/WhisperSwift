@@ -30,7 +30,6 @@ struct SettingsView: View {
 }
 
 struct GeneralSettingsView: View {
-    @AppStorage("selectedHotkey") private var selectedHotkey = "fn"
     @AppStorage("playSounds") private var playSounds = true
     @AppStorage("groqApiKey") private var groqApiKey = ""
     @AppStorage("groqModel") private var groqModel = "whisper-large-v3-turbo"
@@ -39,16 +38,17 @@ struct GeneralSettingsView: View {
     var body: some View {
         Form {
             Section("Hotkey") {
-                Picker("Push-to-Talk Key:", selection: $selectedHotkey) {
-                    Text("Fn (Globe) Key").tag("fn")
-                    Text("Right Option Key").tag("option")
-                    Text("Right Control Key").tag("control")
+                HStack {
+                    Text("Push-to-Talk Key:")
+                    Spacer()
+                    HotkeyRecorderView()
                 }
-                .pickerStyle(.menu)
 
-                Text("Hold the key to record. Double-tap to lock recording hands-free.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                Text(
+                    "Click the key field, then press your preferred key once. Hold it to record or double-tap to lock."
+                )
+                .font(.caption)
+                .foregroundColor(.secondary)
             }
 
             Section("Feedback") {
@@ -166,7 +166,7 @@ struct AboutView: View {
                 .font(.title)
                 .fontWeight(.bold)
 
-            Text("Version 1.0")
+            Text("Version \(appVersion)")
                 .foregroundColor(.secondary)
 
             Text("Push-to-talk speech recognition powered by Groq")
@@ -190,6 +190,10 @@ struct AboutView: View {
             }
         }
         .padding(32)
+    }
+
+    private var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown"
     }
 }
 

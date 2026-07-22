@@ -70,9 +70,15 @@ final class HotkeyManager {
             guard event.type == .flagsChanged else { return false }
             if ignoredModifierReleaseKeyCode == configuration.keyCode {
                 ignoredModifierReleaseKeyCode = nil
-                return true
+                return false
             }
-            updateKeyState(isPressed: !isKeyDown, source: "NSEvent")
+            updateKeyState(
+                isPressed: HotkeyConfiguration.isModifierPressed(
+                    configuration.keyCode,
+                    in: event.modifierFlags
+                ),
+                source: "NSEvent"
+            )
             return true
         }
 
@@ -221,9 +227,15 @@ extension HotkeyManager {
             guard type == .flagsChanged else { return false }
             if ignoredModifierReleaseKeyCode == configuration.keyCode {
                 ignoredModifierReleaseKeyCode = nil
-                return true
+                return false
             }
-            updateKeyState(isPressed: !isKeyDown, source: "CGEvent")
+            updateKeyState(
+                isPressed: HotkeyConfiguration.isModifierPressed(
+                    configuration.keyCode,
+                    in: event.flags
+                ),
+                source: "CGEvent"
+            )
             return true
         }
 

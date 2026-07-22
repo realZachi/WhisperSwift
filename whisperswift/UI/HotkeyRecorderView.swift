@@ -122,23 +122,28 @@ private struct KeyCaptureView: NSViewRepresentable {
 private final class KeyCaptureNSView: NSView {
     var onKeyCaptured: ((NSEvent) -> Void)?
     var onCaptureCancelled: (() -> Void)?
-    var isActive = false
+    var isActive = false {
+        didSet {
+            updateEventMonitor()
+        }
+    }
+
+    private var eventMonitor: Any?
+
+    deinit {
+        removeEventMonitor()
+    }
 
     override var acceptsFirstResponder: Bool {
         true
     }
 
     override func keyDown(with event: NSEvent) {
-        guard !event.isARepeat else { return }
-        onKeyCaptured?(event)
+        _ = captureIfNeeded(event)
     }
 
     override func flagsChanged(with event: NSEvent) {
-        guard HotkeyConfiguration.isModifier(event.keyCode) || !HotkeyConfiguration.isSupported(event.keyCode) else {
-            return
-        }
-
-        onKeyCaptured?(event)
+        _ = captureIfNeeded(event)
     }
 
     override func resignFirstResponder() -> Bool {
@@ -149,5 +154,51 @@ private final class KeyCaptureNSView: NSView {
             }
         }
         return didResign
+    }
+
+    private func updateEventMonitor() {
+        guard isActive else {
+            removeEventMonitor()
+            return
+        }
+        guard eventMonitor == nil else { return }
+
+        eventMonitor = NSEvent.addLocalMonitorForEvents(
+            matching: [.flagsChanged, .keyDown]
+        ) { [weak self] event in
+            guard let self, self.isActive else { return event }
+            return self.captureIfNeeded(event) ? nil : event
+        }
+    }
+
+    private func removeEventMonitor() {
+        guard let eventMonitor else { return }
+        NSEvent.removeMonitor(eventMonitor)
+        self.eventMonitor = nil
+    }
+
+    private func captureIfNeeded(_ event: NSEvent) -> Bool {
+        switch event.type {
+        case .keyDown:
+            guard !event.isARepeat else { return false }
+        case .flagsChanged:
+            if HotkeyConfiguration.isModifier(event.keyCode) {
+                guard HotkeyConfiguration.isModifierPressed(
+                    event.keyCode,
+                    in: event.modifierFlags
+                ) else {
+                    return false
+                }
+            } else {
+                guard !HotkeyConfiguration.isSupported(event.keyCode) else {
+                    return false
+                }
+            }
+        default:
+            return false
+        }
+
+        onKeyCaptured?(event)
+        return true
     }
 }
